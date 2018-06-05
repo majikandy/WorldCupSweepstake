@@ -6,6 +6,7 @@ public class Auction : SmartContract
     {
         get
         {
+            //Perhaps a map file like NHibernate to wrap these calls. Or an extension to Simple.Data
             return PersistentState.GetAddress("Owner");
         }
         set
