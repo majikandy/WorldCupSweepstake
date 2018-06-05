@@ -82,6 +82,8 @@ public class Auction : SmartContract
     {
         Assert(Block.Number < EndBlock);
         Assert(Message.Value > HighestBid);
+
+        //don't understand this
         if (HighestBid > 0)
         {
             ReturnBalances[HighestBidder] = HighestBid;
@@ -95,7 +97,7 @@ public class Auction : SmartContract
         ulong amount = ReturnBalances[Message.Sender];
         Assert(amount > 0);
         ReturnBalances[Message.Sender] = 0;
-        ITransferResult transferResult = TransferFunds(Message.Sender, amount);
+        ITransferResult transferResult = TransferFundsTo(Message.Sender, amount);
         if (!transferResult.Success)
             ReturnBalances[Message.Sender] = amount;
         return transferResult.Success;
@@ -106,6 +108,12 @@ public class Auction : SmartContract
         Assert(Block.Number >= EndBlock);
         Assert(!HasEnded);
         HasEnded = true;
-        TransferFunds(Owner, HighestBid);
+        TransferFundsTo(Owner, HighestBid);
+    }
+
+    protected virtual ITransferResult TransferFundsTo(Address receiver, ulong highestBid)
+    {
+        //This would be great to be defined as protected virtual so that it can be asserted it happened
+        return TransferFunds(receiver, highestBid);
     }
 }
