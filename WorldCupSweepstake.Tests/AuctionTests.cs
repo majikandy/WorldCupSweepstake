@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Generic;
+using FluentAssertions;
+using NSubstitute;
 using Stratis.SmartContracts;
 using WorldCupSweepstake.Tests.TestTools;
 using Xunit;
@@ -12,6 +15,7 @@ namespace WorldCupSweepstake.Tests
         private static readonly Address BidderTwo = (Address) "bidder_two_address";
 
         private readonly TestSmartContractState smartContractState;
+        private IInternalTransactionExecutor transactionExecutor;
         private const ulong Balance = 0;
         private const ulong GasLimit = 10000;
         private const ulong Value = 0;
@@ -36,12 +40,15 @@ namespace WorldCupSweepstake.Tests
             var persistentState = new InMemoryState();
             var internalHashHelper = new TestInternalHashHelper();
 
+            IGasMeter gasMeter = null;
+            this.transactionExecutor = Substitute.For<IInternalTransactionExecutor>();
+
             this.smartContractState = new TestSmartContractState(
                 block,
                 message,
                 persistentState,
-                null,
-                null,
+                gasMeter,
+                transactionExecutor,
                 getBalance,
                 internalHashHelper
             );
@@ -53,9 +60,9 @@ namespace WorldCupSweepstake.Tests
             const ulong duration = 20;
             var contract = new Auction(smartContractState, duration);
 
-            Assert.Equal(ContractOwnerAddress, contract.Owner);
-            Assert.False(contract.HasEnded);
-            Assert.Equal(duration + smartContractState.Block.Number, contract.EndBlock);
+            contract.Owner.Should().Be(ContractOwnerAddress);
+            contract.HasEnded.Should().BeFalse();
+            contract.EndBlock.Should().Be(duration + smartContractState.Block.Number);
         }
 
         [Fact]
@@ -66,8 +73,10 @@ namespace WorldCupSweepstake.Tests
             Assert.Equal(default(Address), contract.HighestBidder);
             Assert.Equal(0uL, contract.HighestBid);
 
-            ((TestMessage) smartContractState.Message).Value = 100;
-            ((TestMessage) smartContractState.Message).Sender = BidderOne;
+            var message = ((TestMessage) smartContractState.Message);
+
+            message.Value = 100;
+            message.Sender = BidderOne;
             contract.Bid();
 
             Assert.Equal(BidderOne, contract.HighestBidder);
@@ -79,12 +88,14 @@ namespace WorldCupSweepstake.Tests
         {
             var contract = new Auction(smartContractState, 20);
 
-            ((TestMessage) smartContractState.Message).Value = 100;
-            ((TestMessage) smartContractState.Message).Sender = BidderOne;
+            var message = ((TestMessage) smartContractState.Message);
+
+            message.Value = 100;
+            message.Sender = BidderOne;
             contract.Bid();
 
-            ((TestMessage) smartContractState.Message).Value = 200;
-            ((TestMessage) smartContractState.Message).Sender = BidderTwo;
+            message.Value = 200;
+            message.Sender = BidderTwo;
             contract.Bid();
 
             Assert.Equal(BidderTwo, contract.HighestBidder);
@@ -98,90 +109,123 @@ namespace WorldCupSweepstake.Tests
 
             var exception = Assert.Throws<Exception>(() => contract.AuctionEnd());
             Assert.Equal("Condition inside 'Assert' call was false.", exception.Message);
-            //Would be good if the exception could be defined and/or the message inside the exception
         }
 
         [Fact]
         public void Bid_after_end_block_fails()
         {
-            var contract = new FundsTransferCapturingAuction(smartContractState, 0);
+            var contract = new Auction(smartContractState, 0);
 
-            ((TestMessage) smartContractState.Message).Value = 200;
-            ((TestMessage) smartContractState.Message).Sender = BidderTwo;
+            var message = ((TestMessage) smartContractState.Message);
+
+            message.Value = 200;
+            message.Sender = BidderTwo;
 
             var exception = Assert.Throws<Exception>(() => contract.Bid());
             Assert.Equal("Condition inside 'Assert' call was false.", exception.Message);
-            //Would be good if the exception could be defined and/or the message inside the exception
         }
 
         [Fact]
         public void EndAuction_attempt_after_end_block_succeeds()
         {
-            var contract = new FundsTransferCapturingAuction(smartContractState, 1);
+            var contract = new Auction(smartContractState, 1);
 
-            ((TestMessage) smartContractState.Message).Value = 200;
-            ((TestMessage) smartContractState.Message).Sender = BidderOne;
+            var message = ((TestMessage) smartContractState.Message);
+
+            message.Value = 200;
+            message.Sender = BidderOne;
             contract.Bid();
 
             smartContractState.Block.GetType().GetProperty("Number")
                 .SetValue(smartContractState.Block, contract.EndBlock);
 
-            contract.SetupTransferFundsToSucceed();
             contract.AuctionEnd();
             Assert.True(contract.HasEnded);
-            Assert.Equal(200ul, contract.WinningBidThatTransferFundsCalledWith);
-            Assert.Equal(ContractOwnerAddress, contract.OwnerThatTransferFundsCalledWith);
+            this.transactionExecutor.Received().TransferFunds(smartContractState, ContractOwnerAddress, 200ul, null);
         }
 
         [Fact]
-        public void Bidder_can_withdraw_their_bid()
+        public void Bidder_can_withdraw_their_bid_but_currently_at_least_2_bids_before_they_can()
         {
-            var contract = new FundsTransferCapturingAuction(smartContractState, 1);
+            var contract = new Auction(smartContractState, 1);
 
-            ((TestMessage) smartContractState.Message).Value = 200;
-            ((TestMessage) smartContractState.Message).Sender = BidderOne;
+            var message = ((TestMessage) smartContractState.Message);
+
+            message.Value = 200;
+            message.Sender = BidderOne;
             contract.Bid();
-            ((TestMessage) smartContractState.Message).Value = 300;
+            message.Value = 300;
             contract.Bid();
 
             contract.Withdraw();
         }
 
-        //[Fact]
-        public void Bidder_cannot_outbid_themselves()
+        [Fact]
+        public void Bidder_cant_withdraw_bid_if_only_one_bid()
         {
-            //currently they can
+            var contract = new Auction(smartContractState, 1);
+            var message = ((TestMessage)smartContractState.Message);
+            message.Value = 200;
+            message.Sender = BidderOne;
+            contract.Bid();
+
+            Action withdraw = () => contract.Withdraw();
+
+            withdraw.Should().Throw<KeyNotFoundException>()
+                .WithMessage("The given key 'bidder_one_address' was not present in the dictionary.");
         }
 
-        //[Fact]
-        public void Outbid_bidders_get_their_money_back()
+        [Fact]
+        public void Bidder_can_outbid_themselves()
         {
-            //currently they don't?
+            var contract = new Auction(smartContractState, 1);
+
+            var message = ((TestMessage)smartContractState.Message);
+
+            message.Value = 200;
+            message.Sender = BidderOne;
+            contract.Bid();
+            message.Value = 250;
+            contract.Bid();
+            message.Value = 300;
+            contract.Bid();
+
+            contract.HighestBidder.Should().Be(BidderOne);
+            contract.HighestBid.Should().Be(300ul);
         }
-    }
 
-    public class FundsTransferCapturingAuction : Auction
-    {
-        private bool succeed;
-
-        public FundsTransferCapturingAuction(ISmartContractState smartContractState, ulong durationBlocks) : base(smartContractState, durationBlocks)
+        [Fact]
+        public void Bidder_cant_bid_same_amount()
         {
+            var contract = new Auction(smartContractState, 1);
+
+            var message = ((TestMessage)smartContractState.Message);
+
+            message.Value = 200;
+            message.Sender = BidderOne;
+            contract.Bid();
+            message.Value = 200;
+            Action bid = () => contract.Bid();
+
+            bid.Should().Throw<Exception>()
+                .WithMessage("Condition inside 'Assert' call was false.");
         }
 
-        public void SetupTransferFundsToSucceed()
+        [Fact]
+        public void Bidder_cant_bid_lower_amount()
         {
-            this.succeed = true;
-        }
+            var contract = new Auction(smartContractState, 1);
 
-        public ulong WinningBidThatTransferFundsCalledWith { get; set; }
+            var message = ((TestMessage)smartContractState.Message);
 
-        public Address OwnerThatTransferFundsCalledWith { get; set; }
+            message.Value = 200;
+            message.Sender = BidderOne;
+            contract.Bid();
+            message.Value = 100;
+            Action bid = () => contract.Bid();
 
-        protected override ITransferResult TransferFundsTo(Address owner, ulong winningBid)
-        {
-            this.OwnerThatTransferFundsCalledWith = owner;
-            this.WinningBidThatTransferFundsCalledWith = winningBid;
-            return new TestTransferResult(this.succeed);
+            bid.Should().Throw<Exception>()
+                .WithMessage("Condition inside 'Assert' call was false.");
         }
     }
 }

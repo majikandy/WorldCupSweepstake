@@ -2,11 +2,9 @@
 
 public class Auction : SmartContract
 {
-    public Address Owner
-    {
+    public virtual Address Owner {
         get
         {
-            //Perhaps a map file like NHibernate to wrap these calls. Or an extension to Simple.Data
             return PersistentState.GetAddress("Owner");
         }
         set
@@ -15,8 +13,7 @@ public class Auction : SmartContract
         }
     }
 
-    public ulong EndBlock
-    {
+    public ulong EndBlock {
         get
         {
             return PersistentState.GetUInt64("EndBlock");
@@ -72,7 +69,7 @@ public class Auction : SmartContract
     }
 
     public Auction(ISmartContractState smartContractState, ulong durationBlocks)
-    : base(smartContractState)
+        : base(smartContractState)
     {
         Owner = Message.Sender;
         EndBlock = Block.Number + durationBlocks;
@@ -84,7 +81,7 @@ public class Auction : SmartContract
         Assert(Block.Number < EndBlock);
         Assert(Message.Value > HighestBid);
 
-        //don't understand this
+        //don't understand this - this appears to only work for storing the value for the second bidder onwards?
         if (HighestBid > 0)
         {
             ReturnBalances[HighestBidder] = HighestBid;
@@ -95,10 +92,12 @@ public class Auction : SmartContract
 
     public bool Withdraw()
     {
-        ulong amount = ReturnBalances[Message.Sender];
+        var amount = ReturnBalances[Message.Sender];
         Assert(amount > 0);
         ReturnBalances[Message.Sender] = 0;
-        ITransferResult transferResult = TransferFundsTo(Message.Sender, amount);
+
+        var transferResult = TransferFunds(Message.Sender, amount);
+
         if (!transferResult.Success)
             ReturnBalances[Message.Sender] = amount;
         return transferResult.Success;
@@ -109,12 +108,6 @@ public class Auction : SmartContract
         Assert(Block.Number >= EndBlock);
         Assert(!HasEnded);
         HasEnded = true;
-        TransferFundsTo(Owner, HighestBid);
-    }
-
-    protected virtual ITransferResult TransferFundsTo(Address receiver, ulong highestBid)
-    {
-        //This would be great to be defined as protected virtual so that it can be asserted it happened
-        return TransferFunds(receiver, highestBid);
+        TransferFunds(Owner, HighestBid);
     }
 }
