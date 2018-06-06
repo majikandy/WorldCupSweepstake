@@ -70,8 +70,8 @@ namespace WorldCupSweepstake.Tests
         {
             var contract = new Auction(smartContractState, 20);
 
-            Assert.Equal(default(Address), contract.HighestBidder);
-            Assert.Equal(0uL, contract.HighestBid);
+            contract.HighestBidder.Should().Be(default(Address));
+            contract.HighestBid.Should().Be(0uL);
 
             var message = ((TestMessage) smartContractState.Message);
 
@@ -79,8 +79,8 @@ namespace WorldCupSweepstake.Tests
             message.Sender = BidderOne;
             contract.Bid();
 
-            Assert.Equal(BidderOne, contract.HighestBidder);
-            Assert.Equal(100uL, contract.HighestBid);
+            contract.HighestBidder.Should().Be(BidderOne);
+            contract.HighestBid.Should().Be(100ul);
         }
 
         [Fact]
