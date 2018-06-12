@@ -171,8 +171,8 @@ namespace WorldCupSweepstake.Tests
 
             Action withdraw = () => contract.Withdraw();
 
-            withdraw.Should().Throw<KeyNotFoundException>()
-                .WithMessage("The given key 'bidder_one_address' was not present in the dictionary.");
+            withdraw.Should().Throw<Exception>()
+                .WithMessage("Condition inside 'Assert' call was false.");
         }
 
         [Fact]

@@ -14,7 +14,7 @@ namespace WorldCupSweepstake.Tests.TestTools
 
         public T Get(string key)
         {
-            return this.dictionary[key];
+            return this.dictionary.ContainsKey(key)? this.dictionary[key] : default(T);
         }
 
         public T this[string key]

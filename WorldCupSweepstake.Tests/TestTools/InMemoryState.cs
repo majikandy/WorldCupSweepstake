@@ -10,6 +10,9 @@ namespace WorldCupSweepstake.Tests.TestTools
         private Dictionary<string, ulong> uint64s = new Dictionary<string, ulong>();
         private Dictionary<string, bool> bools = new Dictionary<string, bool>();
         private Dictionary<string, TestSmartContractMapping<ulong>> uint64mappings = new Dictionary<string, TestSmartContractMapping<ulong>>();
+        private Dictionary<string, string> strings = new Dictionary<string, string>();
+        private Dictionary<string, uint> uint32s = new Dictionary<string, uint>();
+        private Dictionary<string, TestSmartContractMapping<Address>> addressMappings = new Dictionary<string, TestSmartContractMapping<Address>>();
 
         public byte GetByte(string key)
         {
@@ -43,7 +46,7 @@ namespace WorldCupSweepstake.Tests.TestTools
 
         public uint GetUInt32(string key)
         {
-            throw new NotImplementedException();
+            return this.uint32s.ContainsKey(key) ? this.uint32s[key] : default(uint);
         }
 
         public long GetInt64(string key)
@@ -58,7 +61,7 @@ namespace WorldCupSweepstake.Tests.TestTools
 
         public string GetString(string key)
         {
-            throw new NotImplementedException();
+            return this.strings.ContainsKey(key) ? this.strings[key] : string.Empty;
         }
 
         public sbyte GetSbyte(string key)
@@ -103,7 +106,7 @@ namespace WorldCupSweepstake.Tests.TestTools
 
         public void SetUInt32(string key, uint value)
         {
-            throw new NotImplementedException();
+            this.uint32s[key] = value;
         }
 
         public void SetInt64(string key, long value)
@@ -118,7 +121,7 @@ namespace WorldCupSweepstake.Tests.TestTools
 
         public void SetString(string key, string value)
         {
-            throw new NotImplementedException();
+            this.strings[key] = value;
         }
 
         public void SetSByte(string key, sbyte value)
@@ -148,7 +151,10 @@ namespace WorldCupSweepstake.Tests.TestTools
 
         public ISmartContractMapping<Address> GetAddressMapping(string name)
         {
-            throw new NotImplementedException();
+            if (!this.addressMappings.ContainsKey(name))
+                this.addressMappings.Add(name, new TestSmartContractMapping<Address>());
+
+            return this.addressMappings[name];
         }
 
         public ISmartContractMapping<bool> GetBoolMapping(string name)
