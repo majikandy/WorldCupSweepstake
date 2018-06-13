@@ -1,5 +1,4 @@
-﻿using System.Linq;
-using Stratis.SmartContracts;
+﻿using Stratis.SmartContracts;
 
 public class Sweepstake : SmartContract
 {
@@ -15,63 +14,47 @@ public class Sweepstake : SmartContract
         }
     }
 
-    public ulong EndBlock
+    public ISmartContractList<Address> Players
     {
-        get
-        {
-            return PersistentState.GetUInt64("EndBlock");
-        }
-        set
-        {
-            PersistentState.SetUInt64("EndBlock", value);
-        }
+        get { return PersistentState.GetAddressList("AssignedTeams"); }
     }
 
-    public Address HighestBidder
+    public ISmartContractList<string> AssignedTeams
     {
-        get
-        {
-            return PersistentState.GetAddress("HighestBidder");
-        }
-        set
-        {
-            PersistentState.SetAddress("HighestBidder", value);
-        }
+        get { return PersistentState.GetStringList("AssignedTeams"); }
     }
 
-    public ulong HighestBid
+    public string FirstPlacePlayer
     {
         get
         {
-            return PersistentState.GetUInt64("HighestBid");
+            return PersistentState.GetString("FirstPlacePlayer");
         }
         set
         {
-            PersistentState.SetUInt64("HighestBid", value);
+            PersistentState.SetString("FirstPlacePlayer", value);
         }
     }
-
-    public bool HasEnded
+    public string SecondPlacePlayer
     {
         get
         {
-            return PersistentState.GetBool("HasEnded");
+            return PersistentState.GetString("SecondPlacePlayer");
         }
         set
         {
-            PersistentState.SetBool("HasEnded", value);
+            PersistentState.SetString("SecondPlacePlayer", value);
         }
     }
-
-    public string Teams
+    public string ThirdPlacePlayer
     {
         get
         {
-            return PersistentState.GetString("Teams");
+            return PersistentState.GetString("ThirdPlacePlayer");
         }
         set
         {
-            PersistentState.SetString("Teams", value);
+            PersistentState.SetString("ThirdPlacePlayer", value);
         }
     }
 
@@ -123,35 +106,105 @@ public class Sweepstake : SmartContract
         }
     }
 
-
-    public ISmartContractMapping<Address> AssignedTeams
+    public string TeamsCsv
     {
-        get { return PersistentState.GetAddressMapping("AssignedTeams"); }
+        get { return PersistentState.GetString("TeamsCsv"); }
+        set { PersistentState.SetString("TeamsCsv", value); }
     }
 
     public Sweepstake(ISmartContractState smartContractState, string teams, uint entryFee, uint firstPrize, uint secondPrize, uint thirdPrize)
         : base(smartContractState)
     {
         Owner = Message.Sender;
-        Teams = teams;
+        TeamsCsv = teams;
         EntryFee = entryFee;
         FirstPrize = firstPrize;
         SecondPrize = secondPrize;
         ThirdPrize = thirdPrize;
     }
 
-    public string PickTeam(string senderAddress)
-    {
-        var teams = this.Teams.Split(",");
-        var potentialIndex = (senderAddress[1] - 1) % teams.Length;
 
-        while (AssignedTeams[potentialIndex.ToString()] != default(Address))
+    public void JoinGame()
+    {
+        var sender = Message.Sender;
+        Assert(this.Players.Count < this.TeamsCsv.Split(",").Length);
+
+        this.Players.Add(sender);
+
+        if (this.Players.Count == this.TeamsCsv.Split(",").Length)
         {
-            potentialIndex = (potentialIndex + 1) % teams.Length;
+            AssignTeams();
+        }
+    }
+
+    private void AssignTeams()
+    {
+        uint numberOfTeams = (uint)this.TeamsCsv.Split(",").Length;
+
+        int hashSum = 0;
+
+        for (uint playerIndex = 0; playerIndex < numberOfTeams; playerIndex++)
+        {
+            var addressHash = this.Players[playerIndex] + this.Players[(playerIndex + 1) % numberOfTeams] + Block.Number;
+
+            foreach (var letter in addressHash)
+            {
+                hashSum += letter;
+            }
         }
 
-        AssignedTeams[potentialIndex.ToString()] = Message.Sender;
-        return teams[potentialIndex].Trim();
+        var shifterNumber = hashSum % (TeamsCsv.LastIndexOf(",") - 1); // find random point in the string
 
+        var randomCommaIndex = TeamsCsv.IndexOf(',', shifterNumber);
+        var stringBeforeComma = TeamsCsv.Substring(0, randomCommaIndex);
+        var stringAfterComma = TeamsCsv.Substring(randomCommaIndex + 1);
+        var newResult = stringAfterComma + "," + stringBeforeComma;
+
+        var teamsRandomised = newResult.Split(",");
+        foreach (var team in teamsRandomised)
+        {
+            AssignedTeams.Add(team);
+        }
     }
+
+    public void DeclareResult(string winningTeam, string secondPlace, string thirdPlace)
+    {
+        Assert(Message.Sender == Owner);
+
+        Address winner = default(Address);
+        Address second = default(Address);
+        Address third = default(Address);
+        for (uint i = 0; i < AssignedTeams.Count; i++)
+        {
+            var team = AssignedTeams[i];
+
+            if (team == winningTeam)
+            {
+                FirstPlacePlayer = Players[i] + " : " + AssignedTeams[i] + " : " + FirstPrize;
+                winner = Players[i];
+            }
+
+            if (team == secondPlace)
+            {
+                SecondPlacePlayer = Players[i] + " : " + AssignedTeams[i] + " : " + SecondPrize;
+                second = Players[i];
+            }
+
+            if (team == thirdPlace)
+            {
+                ThirdPlacePlayer = Players[i] + " : " + AssignedTeams[i] + " : " + ThirdPrize;
+                third = Players[i];
+            }
+        }
+
+        Assert(!string.IsNullOrWhiteSpace(FirstPlacePlayer));
+        Assert(!string.IsNullOrWhiteSpace(SecondPlacePlayer));
+        Assert(!string.IsNullOrWhiteSpace(ThirdPlacePlayer));
+
+        TransferFunds(winner, FirstPrize);
+        TransferFunds(second, SecondPrize);
+        TransferFunds(third, ThirdPrize);
+    }
+
+
 }

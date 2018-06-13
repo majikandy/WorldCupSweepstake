@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Stratis.SmartContracts;
 
 namespace WorldCupSweepstake.Tests.TestTools
@@ -19,7 +20,7 @@ namespace WorldCupSweepstake.Tests.TestTools
 
         public T GetValue(uint index)
         {
-            throw new NotImplementedException();
+            return this.internalList[(int)index];
         }
 
         public void SetValue(uint index, T value)
@@ -41,7 +42,7 @@ namespace WorldCupSweepstake.Tests.TestTools
 
         public T this[uint key]
         {
-            get => throw new NotImplementedException();
+            get => this.internalList[(int)key];
             set => throw new NotImplementedException();
         }
     }
