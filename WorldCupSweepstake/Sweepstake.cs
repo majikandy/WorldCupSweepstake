@@ -171,9 +171,10 @@ public class Sweepstake : SmartContract
     {
         Assert(Message.Sender == Owner);
 
-        Address winner = default(Address);
-        Address second = default(Address);
-        Address third = default(Address);
+        var winner = default(Address);
+        var second = default(Address);
+        var third = default(Address);
+
         for (uint i = 0; i < AssignedTeams.Count; i++)
         {
             var team = AssignedTeams[i];
