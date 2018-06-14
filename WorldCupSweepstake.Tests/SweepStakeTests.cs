@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using FluentAssertions;
 using NSubstitute;
 using Stratis.SmartContracts;
@@ -10,30 +9,30 @@ namespace WorldCupSweepstake.Tests
 {
     public class SweepStakeTests
     {
-        private static readonly Address ContractOwnerAddress = new Address("contract_owner_address");
-        private Address ContractAddress = new Address("ContractAddress");
-        private Address Punter1Address = new Address("Punter1 address");
-        private Address Punter2Address = new Address("Punter2 address");
-        private Address Punter3Address = new Address("Punter3 address");
+        private readonly Address contractOwnerAddress = new Address("contract_owner_address");
+        private readonly Address contractAddress = new Address("ContractAddress");
+        private readonly Address punter1Address = new Address("Punter1 address");
+        private readonly Address punter2Address = new Address("Punter2 address");
+        private readonly Address punter3Address = new Address("Punter3 address");
+        private uint entryFeeStrats = 5;
+        private const ulong SatoshiMuliplier = 100000000;
 
         private readonly TestSmartContractState smartContractState;
-        private IInternalTransactionExecutor transactionExecutor;
-        private uint entryFeeStrats = 5;
-        private const ulong SatoshiMuliplier = 100000000; //satoshis
+        private readonly IInternalTransactionExecutor transactionExecutor;
 
         public SweepStakeTests()
         {
             var block = new TestBlock
             {
-                Coinbase = ContractOwnerAddress,
+                Coinbase = contractOwnerAddress,
                 Number = 2
             };
 
             var message = new TestMessage
             {
-                ContractAddress = ContractAddress,
+                ContractAddress = contractAddress,
                 GasLimit = (Gas)(ulong)10000,
-                Sender = Punter1Address,
+                Sender = punter1Address,
                 Value = 0
             };
 
@@ -53,8 +52,8 @@ namespace WorldCupSweepstake.Tests
         private Sweepstake SetupValidSweepstake()
         {
             var message = ((TestMessage)smartContractState.Message);
-            message.Sender = ContractOwnerAddress;
-            message.Value = entryFeeStrats;
+            message.Sender = contractOwnerAddress;
+            message.Value = entryFeeStrats * SatoshiMuliplier; //note via swagger when calling methods it is strats. eg amount:"1"  means 1 strat (1*10^8 satoshis)
 
             var teams = "Germany,Brazil,England,Argentina";
 
@@ -73,8 +72,8 @@ namespace WorldCupSweepstake.Tests
         {
             var contract = SetupValidSweepstake();
 
-            contract.Owner.Should().Be(ContractOwnerAddress);
-            contract.TeamsCsv.Should().Be("Germany,Brazil,England,Argentina");
+            contract.Owner.Should().Be(contractOwnerAddress);
+            contract.TeamsCsv.Should().Be("germany,brazil,england,argentina");
             contract.FirstPrizeSatoshis.Should().Be(14ul * SatoshiMuliplier);
             contract.SecondPrizeSatoshis.Should().Be(4ul * SatoshiMuliplier);
             contract.ThirdPrizeSatoshis.Should().Be(2ul * SatoshiMuliplier);
@@ -85,14 +84,14 @@ namespace WorldCupSweepstake.Tests
         {
             var contract = SetupValidSweepstake();
 
-            contract.JoinGame();
-            contract.JoinGame();
-            contract.JoinGame();
-            contract.JoinGame();
-            contract.AssignedTeams.GetValue(0).Should().Be("England");
-            contract.AssignedTeams.GetValue(1).Should().Be("Argentina");
-            contract.AssignedTeams.GetValue(2).Should().Be("Germany");
-            contract.AssignedTeams.GetValue(3).Should().Be("Brazil");
+            contract.JoinGame("alice");
+            contract.JoinGame("bob");
+            contract.JoinGame("jing");
+            contract.JoinGame("satoshi");
+            contract.AssignedTeams.GetValue(0).Should().Be("argentina");
+            contract.AssignedTeams.GetValue(1).Should().Be("germany");
+            contract.AssignedTeams.GetValue(2).Should().Be("brazil");
+            contract.AssignedTeams.GetValue(3).Should().Be("england");
         }
 
         [Fact]
@@ -102,7 +101,7 @@ namespace WorldCupSweepstake.Tests
             var message = ((TestMessage)smartContractState.Message);
             message.Value = entryFeeStrats - 1;
 
-            Action joinGame = () => contract.JoinGame();
+            Action joinGame = () => contract.JoinGame("alice");
 
             joinGame.Should().Throw<Exception>()
                 .WithMessage("Condition inside 'Assert' call was false.");
@@ -115,7 +114,7 @@ namespace WorldCupSweepstake.Tests
             var message = ((TestMessage)smartContractState.Message);
             message.Value = entryFeeStrats + 1;
 
-            Action joinGame = () => contract.JoinGame();
+            Action joinGame = () => contract.JoinGame("alice");
 
             joinGame.Should().Throw<Exception>()
                 .WithMessage("Condition inside 'Assert' call was false.");
@@ -126,7 +125,7 @@ namespace WorldCupSweepstake.Tests
         {
             var contract = SetupValidSweepstake();
 
-            Action joinGame = () => contract.JoinGame();
+            Action joinGame = () => contract.JoinGame("alice");
 
             joinGame();
             joinGame();
@@ -154,15 +153,14 @@ namespace WorldCupSweepstake.Tests
         public void Error_when_prizes_dont_add_up_to_number_of_players()
         {
             var message = ((TestMessage)smartContractState.Message);
-            message.Sender = ContractOwnerAddress;
+            message.Sender = contractOwnerAddress;
             message.Value = entryFeeStrats;
 
             uint firstPrize = 100;
             uint secondPrize = 40;
             uint thirdPrize = 20;
 
-            Action construct = () => new Sweepstake(smartContractState, "Germany,Brazil,England,Argentina", entryFeeStrats, firstPrize,
-                secondPrize, thirdPrize);
+            Action construct = () => new Sweepstake(smartContractState, "Germany,Brazil,England,Argentina", entryFeeStrats, firstPrize, secondPrize, thirdPrize);
 
             construct.Should().Throw<Exception>();
         }
@@ -173,44 +171,93 @@ namespace WorldCupSweepstake.Tests
             var message = ((TestMessage)smartContractState.Message);
 
             var contract = SetupValidSweepstake();
-            message.Sender = ContractOwnerAddress;
-            contract.JoinGame();
-            message.Sender = Punter1Address;
-            contract.JoinGame();
-            message.Sender = Punter2Address;
-            contract.JoinGame();
-            message.Sender = Punter3Address;
-            contract.JoinGame();
+            message.Sender = contractOwnerAddress;
+            contract.JoinGame("owner");
+            message.Sender = punter1Address;
+            contract.JoinGame("p1");
+            message.Sender = punter2Address;
+            contract.JoinGame("p2");
+            message.Sender = punter3Address;
+            contract.JoinGame("p3");
 
-            contract.AssignedTeams.GetValue(0).Should().Be("Argentina");
-            contract.AssignedTeams.GetValue(1).Should().Be("Germany");
-            contract.AssignedTeams.GetValue(2).Should().Be("Brazil");
-            contract.AssignedTeams.GetValue(3).Should().Be("England");
+            contract.AssignedTeams.GetValue(0).Should().Be("england");
+            contract.AssignedTeams.GetValue(1).Should().Be("argentina");
+            contract.AssignedTeams.GetValue(2).Should().Be("germany");
+            contract.AssignedTeams.GetValue(3).Should().Be("brazil");
 
-            Action declareResult = () => contract.DeclareResult("Brazil", "England", "Germany");
+            message.Sender = contractOwnerAddress;
+            contract.DeclareResult("BRAZIL", "England  ", "   Germany");
 
-            message.Sender = ContractOwnerAddress;
-
-            declareResult();
             contract.Result.Should().Be(
-@"Punter2 address : Brazil : 14 SC-TSTRAT
-Punter3 address : England : 4 SC-TSTRAT
-Punter1 address : Germany : 2 SC-TSTRAT");
+@"p3(Punter3 address) : brazil : 14 SC-TSTRAT
+owner(contract_owner_address) : england : 4 SC-TSTRAT
+p2(Punter2 address) : germany : 2 SC-TSTRAT");
 
-            this.transactionExecutor.Received().TransferFunds(smartContractState, Punter2Address, 14ul * SatoshiMuliplier, null);
-            this.transactionExecutor.Received().TransferFunds(smartContractState, Punter3Address, 4ul * SatoshiMuliplier, null);
-            this.transactionExecutor.Received().TransferFunds(smartContractState, Punter1Address, 2ul * SatoshiMuliplier, null);
+            this.transactionExecutor.Received().TransferFunds(smartContractState, punter3Address, 14ul * SatoshiMuliplier, null);
+            this.transactionExecutor.Received().TransferFunds(smartContractState, contractOwnerAddress, 4ul * SatoshiMuliplier, null);
+            this.transactionExecutor.Received().TransferFunds(smartContractState, punter2Address, 2ul * SatoshiMuliplier, null);
         }
 
+        [Fact]
         public void When_declaring_result_check_all_teams_are_different_and_exist()
         {
-            throw new NotImplementedException();
+            var message = ((TestMessage)smartContractState.Message);
+
+            var contract = SetupValidSweepstake();
+            message.Sender = contractOwnerAddress;
+            contract.JoinGame("owner");
+            message.Sender = punter1Address;
+            contract.JoinGame("p1");
+            message.Sender = punter2Address;
+            contract.JoinGame("p2");
+            message.Sender = punter3Address;
+            contract.JoinGame("p3");
+
+            contract.AssignedTeams.GetValue(0).Should().Be("england");
+            contract.AssignedTeams.GetValue(1).Should().Be("argentina");
+            contract.AssignedTeams.GetValue(2).Should().Be("germany");
+            contract.AssignedTeams.GetValue(3).Should().Be("brazil");
+
+            message.Sender = contractOwnerAddress;
+            Action declareResult = () => contract.DeclareResult("Brazil", "Brazil  ", "Germany");
+            declareResult.Should().Throw<Exception>();
+            declareResult = () => contract.DeclareResult("England", "Brazil", "Brazil");
+            declareResult.Should().Throw<Exception>();
+            declareResult = () => contract.DeclareResult("England", "Brazil", "England");
+            declareResult.Should().Throw<Exception>();
+            declareResult = () => contract.DeclareResult("E", "Brazil", "Germany");
+            declareResult.Should().Throw<Exception>();
+            declareResult = () => contract.DeclareResult("England", "B", "Germany");
+            declareResult.Should().Throw<Exception>();
+            declareResult = () => contract.DeclareResult("England", "Brazil", "G");
+            declareResult.Should().Throw<Exception>();
         }
 
-        // [Fact]
-        public void Prizes_awarded_to_first_second_and_third()
+        [Fact]
+        public void Cancel_and_refund()
         {
+            var message = ((TestMessage)smartContractState.Message);
 
+            var contract = SetupValidSweepstake();
+            message.Sender = contractOwnerAddress;
+            contract.JoinGame("owner");
+            message.Sender = punter1Address;
+            contract.JoinGame("p1");
+            message.Sender = punter2Address;
+            contract.JoinGame("p2");
+            message.Sender = punter3Address;
+            contract.JoinGame("p3");
+
+            message.Sender = contractOwnerAddress;
+
+            contract.CancelAndRefund();
+
+            this.transactionExecutor.Received().TransferFunds(smartContractState, contractOwnerAddress, 5ul * SatoshiMuliplier, null);
+            this.transactionExecutor.Received().TransferFunds(smartContractState, punter1Address, 5ul * SatoshiMuliplier, null);
+            this.transactionExecutor.Received().TransferFunds(smartContractState, punter2Address, 5ul * SatoshiMuliplier, null);
+            this.transactionExecutor.Received().TransferFunds(smartContractState, punter3Address, 5ul * SatoshiMuliplier, null);
+
+            contract.Result.Should().Be("Cancelled by owner at block: " + smartContractState.Block.Number + ". Refunds issued.");
         }
     }
 }

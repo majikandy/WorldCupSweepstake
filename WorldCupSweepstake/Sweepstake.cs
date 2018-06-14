@@ -18,12 +18,48 @@ public class Sweepstake : SmartContract
 
     public ISmartContractList<Address> Players
     {
-        get { return PersistentState.GetAddressList("AssignedTeams"); }
+        get { return PersistentState.GetAddressList("Players"); }
+    }
+
+    public string PlayersCsv
+    {
+        get
+        {
+            return PersistentState.GetString("PlayersCsv");
+        }
+        set
+        {
+            PersistentState.SetString("PlayersCsv", value);
+        }
+    }
+
+    public string PlayersNickNames
+    {
+        get
+        {
+            return PersistentState.GetString("PlayersNickNames");
+        }
+        set
+        {
+            PersistentState.SetString("PlayersNickNames", value);
+        }
     }
 
     public ISmartContractList<string> AssignedTeams
     {
         get { return PersistentState.GetStringList("AssignedTeams"); }
+    }
+
+    public string AssignedTeamsCsv
+    {
+        get
+        {
+            return PersistentState.GetString("AssignedTeamsCsv");
+        }
+        set
+        {
+            PersistentState.SetString("AssignedTeamsCsv", value);
+        }
     }
 
     public string Result
@@ -35,28 +71,6 @@ public class Sweepstake : SmartContract
         set
         {
             PersistentState.SetString("Result", value);
-        }
-    }
-    public string SecondPlacePlayer
-    {
-        get
-        {
-            return PersistentState.GetString("SecondPlacePlayer");
-        }
-        set
-        {
-            PersistentState.SetString("SecondPlacePlayer", value);
-        }
-    }
-    public string ThirdPlacePlayer
-    {
-        get
-        {
-            return PersistentState.GetString("ThirdPlacePlayer");
-        }
-        set
-        {
-            PersistentState.SetString("ThirdPlacePlayer", value);
         }
     }
 
@@ -110,8 +124,14 @@ public class Sweepstake : SmartContract
 
     public string TeamsCsv
     {
-        get { return PersistentState.GetString("TeamsCsv"); }
-        set { PersistentState.SetString("TeamsCsv", value); }
+        get
+        {
+            return PersistentState.GetString("TeamsCsv");
+        }
+        set
+        {
+            PersistentState.SetString("TeamsCsv", value);
+        }
     }
 
     public Sweepstake(ISmartContractState smartContractState, string teams, uint entryFeeStrats, uint firstPrizeStrats, uint secondPrizeStrats, uint thirdPrizeStrats)
@@ -120,37 +140,46 @@ public class Sweepstake : SmartContract
         Assert((ulong)teams.Split(",").Length * entryFeeStrats == (firstPrizeStrats + secondPrizeStrats + thirdPrizeStrats));
 
         Owner = Message.Sender;
-        TeamsCsv = teams.Trim().Trim(',');
+        TeamsCsv = teams.ToLower().Trim().Trim(',');
         EntryFeeSatoshis = entryFeeStrats * SatoshiMuliplier;
         FirstPrizeSatoshis = firstPrizeStrats * SatoshiMuliplier;
         SecondPrizeSatoshis = secondPrizeStrats * SatoshiMuliplier;
         ThirdPrizeSatoshis = thirdPrizeStrats * SatoshiMuliplier;
     }
 
-    public void JoinGame()
+    public void JoinGame(string nickname)
     {
         var sender = Message.Sender;
         Assert(this.Players.Count < this.TeamsCsv.Split(",").Length);
 
-        Assert(Message.Value * SatoshiMuliplier == this.EntryFeeSatoshis);
+        Assert(Message.Value == this.EntryFeeSatoshis);
 
         this.Players.Add(sender);
+        this.PlayersCsv = (PlayersCsv + "," + sender).Trim(',').Trim();
+        this.PlayersNickNames = (PlayersNickNames + "," + nickname).Trim(',').Trim();
 
-        if (this.Players.Count == this.TeamsCsv.Split(",").Length)
+        if (GameIsFull())
         {
             AssignTeams();
         }
     }
 
+    private bool GameIsFull()
+    {
+        return this.Players.Count == this.TeamsCsv.Split(",").Length;
+    }
+
     private void AssignTeams()
     {
-        uint numberOfTeams = (uint)this.TeamsCsv.Split(",").Length;
+        var numberOfTeams = (uint)this.TeamsCsv.Split(",").Length;
 
-        int hashSum = 0;
+        var hashSum = 0;
+
+        var players = PlayersCsv.Split(",");
 
         for (uint playerIndex = 0; playerIndex < numberOfTeams; playerIndex++)
         {
-            var addressHash = this.Players[playerIndex] + this.Players[(playerIndex + 1) % numberOfTeams] + Block.Number;
+            var addressHash = players[playerIndex] + players[(playerIndex + 1) % numberOfTeams];
 
             foreach (var letter in addressHash)
             {
@@ -163,10 +192,12 @@ public class Sweepstake : SmartContract
         var randomCommaIndex = TeamsCsv.IndexOf(',', shifterNumber);
         var stringBeforeComma = TeamsCsv.Substring(0, randomCommaIndex);
         var stringAfterComma = TeamsCsv.Substring(randomCommaIndex + 1);
-        var newResult = stringAfterComma + "," + stringBeforeComma;
 
-        var teamsRandomised = newResult.Split(",");
-        foreach (var team in teamsRandomised)
+        var randomisedTeamsCsv = stringAfterComma + "," + stringBeforeComma;
+
+        this.AssignedTeamsCsv = randomisedTeamsCsv;
+
+        foreach (var team in randomisedTeamsCsv.Split(","))
         {
             AssignedTeams.Add(team.Trim());
         }
@@ -175,14 +206,31 @@ public class Sweepstake : SmartContract
     public void DeclareResult(string winningTeam, string secondPlace, string thirdPlace)
     {
         Assert(Message.Sender == Owner);
+        Assert(winningTeam!=secondPlace);
 
-        uint winner = uint.MaxValue;
+        var assignedTeams = AssignedTeamsCsv.Split(",");
+        var players = PlayersCsv.Split(",");
+        var nickNames = PlayersNickNames.Split(",");
+
+        winningTeam = winningTeam.Trim().ToLower();
+        secondPlace = secondPlace.Trim().ToLower();
+        thirdPlace = thirdPlace.Trim().ToLower();
+
+        Assert(winningTeam != secondPlace);
+        Assert(secondPlace != thirdPlace);
+        Assert(thirdPlace != winningTeam);
+
+        Assert(TeamsCsv.Contains(winningTeam));
+        Assert(TeamsCsv.Contains(secondPlace));
+        Assert(TeamsCsv.Contains(thirdPlace));
+
+        var winner = uint.MaxValue;
         var second = uint.MaxValue;
         var third = uint.MaxValue;
 
-        for (uint i = 0; i < AssignedTeams.Count; i++)
+        for (uint i = 0; i < assignedTeams.Length; i++)
         {
-            var team = AssignedTeams[i];
+            var team = assignedTeams[i];
 
             if (team == winningTeam)
             {
@@ -201,21 +249,29 @@ public class Sweepstake : SmartContract
         }
 
         Result = 
-            $"{Players[winner]} : {AssignedTeams[winner]} : {(FirstPrizeSatoshis / SatoshiMuliplier)} {Currency(Message.ContractAddress)}\r\n" +
-            $"{Players[second]} : {AssignedTeams[second]} : {(SecondPrizeSatoshis / SatoshiMuliplier)} {Currency(Message.ContractAddress)}\r\n" +
-            $"{Players[third]} : {AssignedTeams[third]} : {(ThirdPrizeSatoshis / SatoshiMuliplier)} {Currency(Message.ContractAddress)}";
+            $"{nickNames[winner]}({players[winner]}) : {assignedTeams[winner]} : {(FirstPrizeSatoshis / SatoshiMuliplier)} {Currency(Message.ContractAddress)}\r\n" +
+            $"{nickNames[second]}({players[second]}) : {assignedTeams[second]} : {(SecondPrizeSatoshis / SatoshiMuliplier)} {Currency(Message.ContractAddress)}\r\n" +
+            $"{nickNames[third]}({players[third]}) : {assignedTeams[third]} : {(ThirdPrizeSatoshis / SatoshiMuliplier)} {Currency(Message.ContractAddress)}";
 
-        Assert(winner != uint.MaxValue);
-        Assert(second != uint.MaxValue);
-        Assert(third != uint.MaxValue);
-
-        TransferFunds(Players[winner], FirstPrizeSatoshis);
-        TransferFunds(Players[second], SecondPrizeSatoshis);
-        TransferFunds(Players[third], ThirdPrizeSatoshis);
+        TransferFunds(new Address(players[winner]), FirstPrizeSatoshis);
+        TransferFunds(new Address(players[second]), SecondPrizeSatoshis);
+        TransferFunds(new Address(players[third]), ThirdPrizeSatoshis);
     }
 
     public string Currency(Address address)
     {
         return address.ToString().StartsWith("S") ? "STRAT" : "SC-TSTRAT";
+    }
+
+    public void CancelAndRefund()
+    {
+        Assert(Message.Sender == Owner);
+
+        foreach (var player in Players)
+        {
+            TransferFunds(player, EntryFeeSatoshis);
+        }
+
+        Result = "Cancelled by owner at block: " + Block.Number + ". Refunds issued.";
     }
 }
