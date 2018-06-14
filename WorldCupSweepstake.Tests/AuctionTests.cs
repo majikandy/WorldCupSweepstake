@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using FluentAssertions;
 using NSubstitute;
 using Stratis.SmartContracts;
@@ -15,7 +14,7 @@ namespace WorldCupSweepstake.Tests
         private static readonly Address BidderTwo = (Address) "bidder_two_address";
 
         private readonly TestSmartContractState smartContractState;
-        private IInternalTransactionExecutor transactionExecutor;
+        private readonly IInternalTransactionExecutor transactionExecutor;
         private const ulong Balance = 0;
         private const ulong GasLimit = 10000;
         private const ulong Value = 0;
@@ -31,26 +30,21 @@ namespace WorldCupSweepstake.Tests
             var message = new TestMessage
             {
                 ContractAddress = ContractOwnerAddress,
-                GasLimit = (Gas) GasLimit,
+                GasLimit = (Gas)GasLimit,
                 Sender = ContractOwnerAddress,
                 Value = Value
             };
 
-            var getBalance = new Func<ulong>(() => Balance);
-            var persistentState = new InMemoryState();
-            var internalHashHelper = new TestInternalHashHelper();
-
-            IGasMeter gasMeter = null;
             this.transactionExecutor = Substitute.For<IInternalTransactionExecutor>();
 
             this.smartContractState = new TestSmartContractState(
                 block,
                 message,
-                persistentState,
-                gasMeter,
+                new InMemoryState(),
+                null,
                 transactionExecutor,
-                getBalance,
-                internalHashHelper
+                () => Balance,
+                new TestInternalHashHelper()
             );
         }
 
