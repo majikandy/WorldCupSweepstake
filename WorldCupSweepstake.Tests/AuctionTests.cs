@@ -215,7 +215,7 @@ namespace WorldCupSweepstake.Tests
         public void Bidder_cant_bid_lower_amount()
         {
             var contract = new Auction(smartContractState, 1);
-
+            
             var message = ((TestMessage)smartContractState.Message);
 
             message.Value = 200;

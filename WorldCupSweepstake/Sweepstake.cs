@@ -2,6 +2,8 @@
 
 public class Sweepstake : SmartContract
 {
+    private const ulong SatoshiMuliplier = 100000000; //satoshis
+
     public virtual Address Owner
     {
         get
@@ -24,15 +26,15 @@ public class Sweepstake : SmartContract
         get { return PersistentState.GetStringList("AssignedTeams"); }
     }
 
-    public string FirstPlacePlayer
+    public string Result
     {
         get
         {
-            return PersistentState.GetString("FirstPlacePlayer");
+            return PersistentState.GetString("Result");
         }
         set
         {
-            PersistentState.SetString("FirstPlacePlayer", value);
+            PersistentState.SetString("Result", value);
         }
     }
     public string SecondPlacePlayer
@@ -58,51 +60,51 @@ public class Sweepstake : SmartContract
         }
     }
 
-    public uint EntryFee
+    public ulong EntryFeeSatoshis
     {
         get
         {
-            return PersistentState.GetUInt32("EntryFee");
+            return PersistentState.GetUInt64("EntryFeeSatoshis");
         }
         set
         {
-            PersistentState.SetUInt32("EntryFee", value);
+            PersistentState.SetUInt64("EntryFeeSatoshis", value);
         }
     }
 
-    public uint FirstPrize
+    public ulong FirstPrizeSatoshis
     {
         get
         {
-            return PersistentState.GetUInt32("FirstPrize");
+            return PersistentState.GetUInt64("FirstPrizeSatoshis");
         }
         set
         {
-            PersistentState.SetUInt32("FirstPrize", value);
+            PersistentState.SetUInt64("FirstPrizeSatoshis", value);
         }
     }
 
-    public uint SecondPrize
+    public ulong SecondPrizeSatoshis
     {
         get
         {
-            return PersistentState.GetUInt32("SecondPrize");
+            return PersistentState.GetUInt64("SecondPrizeSatoshis");
         }
         set
         {
-            PersistentState.SetUInt32("SecondPrize", value);
+            PersistentState.SetUInt64("SecondPrizeSatoshis", value);
         }
     }
-
-    public uint ThirdPrize
+     
+    public ulong ThirdPrizeSatoshis
     {
         get
         {
-            return PersistentState.GetUInt32("ThirdPrize");
+            return PersistentState.GetUInt64("ThirdPrizeSatoshis");
         }
         set
         {
-            PersistentState.SetUInt32("ThirdPrize", value);
+            PersistentState.SetUInt64("ThirdPrizeSatoshis", value);
         }
     }
 
@@ -112,22 +114,25 @@ public class Sweepstake : SmartContract
         set { PersistentState.SetString("TeamsCsv", value); }
     }
 
-    public Sweepstake(ISmartContractState smartContractState, string teams, uint entryFee, uint firstPrize, uint secondPrize, uint thirdPrize)
+    public Sweepstake(ISmartContractState smartContractState, string teams, uint entryFeeStrats, uint firstPrizeStrats, uint secondPrizeStrats, uint thirdPrizeStrats)
         : base(smartContractState)
     {
-        Owner = Message.Sender;
-        TeamsCsv = teams;
-        EntryFee = entryFee;
-        FirstPrize = firstPrize;
-        SecondPrize = secondPrize;
-        ThirdPrize = thirdPrize;
-    }
+        Assert((ulong)teams.Split(",").Length * entryFeeStrats == (firstPrizeStrats + secondPrizeStrats + thirdPrizeStrats));
 
+        Owner = Message.Sender;
+        TeamsCsv = teams.Trim().Trim(',');
+        EntryFeeSatoshis = entryFeeStrats * SatoshiMuliplier;
+        FirstPrizeSatoshis = firstPrizeStrats * SatoshiMuliplier;
+        SecondPrizeSatoshis = secondPrizeStrats * SatoshiMuliplier;
+        ThirdPrizeSatoshis = thirdPrizeStrats * SatoshiMuliplier;
+    }
 
     public void JoinGame()
     {
         var sender = Message.Sender;
         Assert(this.Players.Count < this.TeamsCsv.Split(",").Length);
+
+        Assert(Message.Value * SatoshiMuliplier == this.EntryFeeSatoshis);
 
         this.Players.Add(sender);
 
@@ -163,7 +168,7 @@ public class Sweepstake : SmartContract
         var teamsRandomised = newResult.Split(",");
         foreach (var team in teamsRandomised)
         {
-            AssignedTeams.Add(team);
+            AssignedTeams.Add(team.Trim());
         }
     }
 
@@ -171,9 +176,9 @@ public class Sweepstake : SmartContract
     {
         Assert(Message.Sender == Owner);
 
-        var winner = default(Address);
-        var second = default(Address);
-        var third = default(Address);
+        uint winner = uint.MaxValue;
+        var second = uint.MaxValue;
+        var third = uint.MaxValue;
 
         for (uint i = 0; i < AssignedTeams.Count; i++)
         {
@@ -181,31 +186,36 @@ public class Sweepstake : SmartContract
 
             if (team == winningTeam)
             {
-                FirstPlacePlayer = Players[i] + " : " + AssignedTeams[i] + " : " + FirstPrize;
-                winner = Players[i];
+                winner = i;
             }
 
             if (team == secondPlace)
             {
-                SecondPlacePlayer = Players[i] + " : " + AssignedTeams[i] + " : " + SecondPrize;
-                second = Players[i];
+                second = i;
             }
 
             if (team == thirdPlace)
             {
-                ThirdPlacePlayer = Players[i] + " : " + AssignedTeams[i] + " : " + ThirdPrize;
-                third = Players[i];
+                third = i;
             }
         }
 
-        Assert(!string.IsNullOrWhiteSpace(FirstPlacePlayer));
-        Assert(!string.IsNullOrWhiteSpace(SecondPlacePlayer));
-        Assert(!string.IsNullOrWhiteSpace(ThirdPlacePlayer));
+        Result = 
+            $"{Players[winner]} : {AssignedTeams[winner]} : {(FirstPrizeSatoshis / SatoshiMuliplier)} {Currency(Message.ContractAddress)}\r\n" +
+            $"{Players[second]} : {AssignedTeams[second]} : {(SecondPrizeSatoshis / SatoshiMuliplier)} {Currency(Message.ContractAddress)}\r\n" +
+            $"{Players[third]} : {AssignedTeams[third]} : {(ThirdPrizeSatoshis / SatoshiMuliplier)} {Currency(Message.ContractAddress)}";
 
-        TransferFunds(winner, FirstPrize);
-        TransferFunds(second, SecondPrize);
-        TransferFunds(third, ThirdPrize);
+        Assert(winner != uint.MaxValue);
+        Assert(second != uint.MaxValue);
+        Assert(third != uint.MaxValue);
+
+        TransferFunds(Players[winner], FirstPrizeSatoshis);
+        TransferFunds(Players[second], SecondPrizeSatoshis);
+        TransferFunds(Players[third], ThirdPrizeSatoshis);
     }
 
-
+    public string Currency(Address address)
+    {
+        return address.ToString().StartsWith("S") ? "STRAT" : "SC-TSTRAT";
+    }
 }
