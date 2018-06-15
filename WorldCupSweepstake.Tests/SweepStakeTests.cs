@@ -57,7 +57,7 @@ namespace WorldCupSweepstake.Tests
 
             var teams = "Germany,Brazil,England,Argentina";
 
-            var totalPrizeFund = entryFeeStrats * (ulong)teams.Split(",").Length;
+            var totalPrizeFund = entryFeeStrats * 4;
             uint firstPrize = (uint)(totalPrizeFund * 0.7);
             uint secondPrize = (uint)(totalPrizeFund * 0.2);
             uint thirdPrize = (uint)(totalPrizeFund * 0.1);

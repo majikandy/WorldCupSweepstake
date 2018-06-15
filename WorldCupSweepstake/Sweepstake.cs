@@ -137,10 +137,12 @@ public class Sweepstake : SmartContract
     public Sweepstake(ISmartContractState smartContractState, string teams, uint entryFeeStrats, uint firstPrizeStrats, uint secondPrizeStrats, uint thirdPrizeStrats)
         : base(smartContractState)
     {
+        CleanInput(ref teams);
         Assert((ulong)teams.Split(",").Length * entryFeeStrats == (firstPrizeStrats + secondPrizeStrats + thirdPrizeStrats));
 
         Owner = Message.Sender;
-        TeamsCsv = teams.ToLower().Trim().Trim(',');
+        
+        TeamsCsv = teams;
         EntryFeeSatoshis = entryFeeStrats * SatoshiMuliplier;
         FirstPrizeSatoshis = firstPrizeStrats * SatoshiMuliplier;
         SecondPrizeSatoshis = secondPrizeStrats * SatoshiMuliplier;
@@ -149,6 +151,8 @@ public class Sweepstake : SmartContract
 
     public void JoinGame(string nickname)
     {
+        nickname = nickname.Replace(",", ";");
+
         var sender = Message.Sender;
         Assert(this.Players.Count < this.TeamsCsv.Split(",").Length);
 
@@ -162,11 +166,6 @@ public class Sweepstake : SmartContract
         {
             AssignTeams();
         }
-    }
-
-    private bool GameIsFull()
-    {
-        return this.Players.Count == this.TeamsCsv.Split(",").Length;
     }
 
     private void AssignTeams()
@@ -206,23 +205,16 @@ public class Sweepstake : SmartContract
     public void DeclareResult(string winningTeam, string secondPlace, string thirdPlace)
     {
         Assert(Message.Sender == Owner);
-        Assert(winningTeam!=secondPlace);
+
+        CleanInput(ref winningTeam);
+        CleanInput(ref secondPlace);
+        CleanInput(ref thirdPlace);
 
         var assignedTeams = AssignedTeamsCsv.Split(",");
         var players = PlayersCsv.Split(",");
         var nickNames = PlayersNickNames.Split(",");
 
-        winningTeam = winningTeam.Trim().ToLower();
-        secondPlace = secondPlace.Trim().ToLower();
-        thirdPlace = thirdPlace.Trim().ToLower();
-
-        Assert(winningTeam != secondPlace);
-        Assert(secondPlace != thirdPlace);
-        Assert(thirdPlace != winningTeam);
-
-        Assert(TeamsCsv.Contains(winningTeam));
-        Assert(TeamsCsv.Contains(secondPlace));
-        Assert(TeamsCsv.Contains(thirdPlace));
+        CheckTeamsAreDifferentAndExist(winningTeam, secondPlace, thirdPlace);
 
         var winner = uint.MaxValue;
         var second = uint.MaxValue;
@@ -258,9 +250,20 @@ public class Sweepstake : SmartContract
         TransferFunds(new Address(players[third]), ThirdPrizeSatoshis);
     }
 
-    public string Currency(Address address)
+    private static void CleanInput(ref string toClean)
     {
-        return address.ToString().StartsWith("S") ? "STRAT" : "SC-TSTRAT";
+        toClean = toClean.Trim().Trim(',').ToLower();
+    }
+
+    private void CheckTeamsAreDifferentAndExist(string winningTeam, string secondPlace, string thirdPlace)
+    {
+        Assert(winningTeam != secondPlace);
+        Assert(secondPlace != thirdPlace);
+        Assert(thirdPlace != winningTeam);
+
+        Assert(TeamsCsv.Contains(winningTeam));
+        Assert(TeamsCsv.Contains(secondPlace));
+        Assert(TeamsCsv.Contains(thirdPlace));
     }
 
     public void CancelAndRefund()
@@ -273,5 +276,15 @@ public class Sweepstake : SmartContract
         }
 
         Result = "Cancelled by owner at block: " + Block.Number + ". Refunds issued.";
+    }
+
+    private bool GameIsFull()
+    {
+        return this.Players.Count == this.TeamsCsv.Split(",").Length;
+    }
+
+    private string Currency(Address address)
+    {
+        return address.ToString().StartsWith("S") ? "STRAT" : "SC-TSTRAT";
     }
 }
