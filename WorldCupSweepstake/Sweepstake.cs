@@ -151,7 +151,7 @@ public class Sweepstake : SmartContract
 
     public void JoinGame(string nickname)
     {
-        nickname = nickname.Replace(",", ";");
+        Assert(!nickname.Contains(","));
 
         var sender = Message.Sender;
         Assert(this.Players.Count < this.TeamsCsv.Split(",").Length);

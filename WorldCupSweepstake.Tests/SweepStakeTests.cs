@@ -137,6 +137,17 @@ namespace WorldCupSweepstake.Tests
         }
 
         [Fact]
+        public void Error_when_name_contains_comma()
+        {
+            var contract = SetupValidSweepstake();
+
+            Action joinGame = () => contract.JoinGame(",");
+
+            joinGame.Should().Throw<Exception>()
+                .WithMessage("Condition inside 'Assert' call was false.");
+        }
+
+        [Fact]
         public void Only_contract_owner_can_announce_results()
         {
             var contract = SetupValidSweepstake();
