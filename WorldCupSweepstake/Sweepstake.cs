@@ -1,5 +1,8 @@
 ﻿using Stratis.SmartContracts;
 
+/// <summary>
+/// DISCLAIMER: This contract is an experimental bit of fun for the world cup and NOT reference code
+/// </summary>
 public class Sweepstake : SmartContract
 {
     private const ulong SatoshiMuliplier = 100000000; //satoshis

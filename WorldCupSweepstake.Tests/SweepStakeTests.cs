@@ -7,6 +7,10 @@ using Xunit;
 
 namespace WorldCupSweepstake.Tests
 {
+    /// <summary>
+    /// DISCLAIMER: This contract is an experimental bit of fun for the world cup and NOT reference code. 
+    /// It is not guranteed to work and is my own work, not the work of the company.
+    /// </summary>
     public class SweepStakeTests
     {
         private readonly Address contractOwnerAddress = new Address("contract_owner_address");

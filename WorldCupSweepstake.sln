@@ -3,9 +3,14 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.27703.2018
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WorldCupSweepstake", "WorldCupSweepstake\WorldCupSweepstake.csproj", "{91543546-87FD-43D7-8DA2-B6996DBB6CC8}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WorldCupSweepstake", "WorldCupSweepstake\WorldCupSweepstake.csproj", "{91543546-87FD-43D7-8DA2-B6996DBB6CC8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WorldCupSweepstake.Tests", "WorldCupSweepstake.Tests\WorldCupSweepstake.Tests.csproj", "{9906F516-F46F-4BA3-ABCD-80342C7FE0A8}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WorldCupSweepstake.Tests", "WorldCupSweepstake.Tests\WorldCupSweepstake.Tests.csproj", "{9906F516-F46F-4BA3-ABCD-80342C7FE0A8}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{89EBCA2F-2411-4454-ADB3-09F1509F0800}"
+	ProjectSection(SolutionItems) = preProject
+		README.md = README.md
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
