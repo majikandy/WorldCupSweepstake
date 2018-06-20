@@ -6,7 +6,7 @@
 /// </summary>
 public class Sweepstake : SmartContract
 {
-    private const ulong SatoshiMuliplier = 100000000; //satoshis
+    private const ulong SatoshiMuliplier = 100000000;
 
     public virtual Address Owner
     {
@@ -113,7 +113,7 @@ public class Sweepstake : SmartContract
             PersistentState.SetUInt64("SecondPrizeSatoshis", value);
         }
     }
-     
+
     public ulong ThirdPrizeSatoshis
     {
         get
@@ -138,11 +138,35 @@ public class Sweepstake : SmartContract
         }
     }
 
+    public string Log
+    {
+        get
+        {
+            return PersistentState.GetString("Log");
+        }
+        set
+        {
+            PersistentState.SetString("Log", value);
+        }
+    }
+
+    public bool TeamsAssigned {
+        get
+        {
+            return PersistentState.GetBool("TeamsAssigned");
+        }
+        set
+        {
+            PersistentState.SetBool("TeamsAssigned", value);
+        }
+    }
+
     public Sweepstake(ISmartContractState smartContractState, string teams, uint entryFeeStrats, uint firstPrizeStrats, uint secondPrizeStrats, uint thirdPrizeStrats)
         : base(smartContractState)
     {
-        CleanInput(ref teams);
-        Assert((ulong)teams.Split(",").Length * entryFeeStrats == (firstPrizeStrats + secondPrizeStrats + thirdPrizeStrats));
+        teams = teams.Trim().Trim(',').ToLower();
+        Assert((ulong)teams.Split(",").Length * entryFeeStrats == (firstPrizeStrats + secondPrizeStrats + thirdPrizeStrats),
+            "Sum of the prizes must equal the teams * entryFee.");
 
         Owner = Message.Sender;
         
@@ -155,16 +179,11 @@ public class Sweepstake : SmartContract
 
     public void JoinGame(string nickname)
     {
-        Assert(!nickname.Contains(","));
+        Assert(!nickname.Contains(","), "Cannot have comma in nickname.");
+        Assert(!GameIsFull(), "The game is already full. No more players can join.");
+        Assert(Message.Value == this.EntryFeeSatoshis, "Amount must equal entryFee: " + this.EntryFeeSatoshis/SatoshiMuliplier +", but was: " + Message.Value + ".");
 
-        var sender = Message.Sender;
-        Assert(this.Players.Count < this.TeamsCsv.Split(",").Length);
-
-        Assert(Message.Value == this.EntryFeeSatoshis);
-
-        this.Players.Add(sender);
-        this.PlayersCsv = (PlayersCsv + "," + sender).Trim(',').Trim();
-        this.PlayersNickNames = (PlayersNickNames + "," + nickname).Trim(',').Trim();
+        AddPlayer(nickname, Message.Sender);
 
         if (GameIsFull())
         {
@@ -172,74 +191,117 @@ public class Sweepstake : SmartContract
         }
     }
 
+    private void AddPlayer(string nickname, Address sender)
+    {
+        this.Players.Add(sender);
+        this.PlayersCsv = (PlayersCsv + "," + sender).Trim(',').Trim();
+        this.PlayersNickNames = (PlayersNickNames + "," + nickname).Trim(',').Trim();
+    }
+
     private void AssignTeams()
     {
-        var numberOfTeams = (uint)this.TeamsCsv.Split(",").Length;
+        var shiftNumberLowerThanLastCommaIndex = GetDeterministicRandomishNumber() % (TeamsCsv.LastIndexOf(",") - 1);
 
-        var hashSum = 0;
-
-        var players = PlayersCsv.Split(",");
-
-        for (uint playerIndex = 0; playerIndex < numberOfTeams; playerIndex++)
-        {
-            var addressHash = players[playerIndex] + players[(playerIndex + 1) % numberOfTeams];
-
-            foreach (var letter in addressHash)
-            {
-                hashSum += letter;
-            }
-        }
-
-        var shifterNumber = hashSum % (TeamsCsv.LastIndexOf(",") - 1); // find random point in the string
-
-        var randomCommaIndex = TeamsCsv.IndexOf(',', shifterNumber);
+        var randomCommaIndex = TeamsCsv.IndexOf(',', shiftNumberLowerThanLastCommaIndex);
         var stringBeforeComma = TeamsCsv.Substring(0, randomCommaIndex);
         var stringAfterComma = TeamsCsv.Substring(randomCommaIndex + 1);
 
-        var randomisedTeamsCsv = stringAfterComma + "," + stringBeforeComma;
+        var reorderedTeams = stringAfterComma + "," + stringBeforeComma;
 
-        this.AssignedTeamsCsv = randomisedTeamsCsv;
+        this.AssignedTeamsCsv = reorderedTeams;
 
-        foreach (var team in randomisedTeamsCsv.Split(","))
+        foreach (var team in reorderedTeams.Split(","))
         {
             AssignedTeams.Add(team.Trim());
         }
     }
 
+    /// NOTE: Miner and last player could collaborate to manipulate team assignment
+    private int GetDeterministicRandomishNumber()
+    {
+        var numberOfTeams = (uint)this.TeamsCsv.Split(",").Length;
+
+        int sum = 0;
+
+        // Use miner's address as source of pseudo randomness
+        var coinbaseAddress = Block.Coinbase.Value;
+        for (int i = 0; i < coinbaseAddress.Length; i++)
+        {
+            sum += coinbaseAddress[i];
+        }
+
+        // Also use last player's address as source of pseudo randomness
+        var lastPlayer = Players[numberOfTeams - 1];
+
+        for (int i = 0; i < lastPlayer.Value.Length; i++)
+        {
+            sum += lastPlayer.Value[i];
+        }
+
+        sum = sum + (int) Block.Number;
+        return sum;
+    }
+
+    private void LogLine(string toLog)
+    {
+        this.Log = this.Log + "\r\n" + toLog;
+    }
+
     public void DeclareResult(string winningTeam, string secondPlace, string thirdPlace)
     {
-        Assert(Message.Sender == Owner);
+        EnsureOnlyOwnerCalled();
+        LogLine("EnsureOnlyOwnerCalled");
 
-        CleanInput(ref winningTeam);
-        CleanInput(ref secondPlace);
-        CleanInput(ref thirdPlace);
+        winningTeam = winningTeam.Trim().Trim(',').ToLower();
+        LogLine("winningTeam = winningTeam.Trim().Trim(',').ToLower()");
+
+        secondPlace = secondPlace.Trim().Trim(',').ToLower();
+        LogLine("winningTeam = winningTeam.Trim().Trim(',').ToLower()");
+        thirdPlace = thirdPlace.Trim().Trim(',').ToLower();
+        LogLine("winningTeam = winningTeam.Trim().Trim(',').ToLower()");
 
         var assignedTeams = AssignedTeamsCsv.Split(",");
+        LogLine("var assignedTeams = AssignedTeamsCsv.Split");
         var players = PlayersCsv.Split(",");
+        LogLine("var players = PlayersCsv.Split(");
+
         var nickNames = PlayersNickNames.Split(",");
+        LogLine("var nickNames = PlayersNickNames.Split(");
 
         CheckTeamsAreDifferentAndExist(winningTeam, secondPlace, thirdPlace);
+        LogLine("CheckTeamsAreDifferentAndExist(winningTeam, secondPlace, thirdPlace)");
 
         var winner = uint.MaxValue;
+        LogLine("var winner = uint.MaxValue;");
         var second = uint.MaxValue;
+        LogLine("var second = uint.MaxValue;");
         var third = uint.MaxValue;
+        LogLine(" var third = uint.MaxValue;");
 
+        LogLine("for (uint i = 0; i < assignedTeams.Length; i++)");
         for (uint i = 0; i < assignedTeams.Length; i++)
         {
             var team = assignedTeams[i];
+            LogLine("var team = assignedTeams[i];");
 
+            LogLine("if (team == winningTeam)");
             if (team == winningTeam)
             {
+                LogLine("winner = i");
                 winner = i;
             }
 
+            LogLine("if (team == secondPlace)");
             if (team == secondPlace)
             {
+                LogLine("second = i;");
                 second = i;
             }
 
+            LogLine("if (team == thirdPlace)");
             if (team == thirdPlace)
             {
+                LogLine("third = i;");
                 third = i;
             }
         }
@@ -248,47 +310,70 @@ public class Sweepstake : SmartContract
             $"{nickNames[winner]}({players[winner]}) : {assignedTeams[winner]} : {(FirstPrizeSatoshis / SatoshiMuliplier)} {Currency(Message.ContractAddress)}\r\n" +
             $"{nickNames[second]}({players[second]}) : {assignedTeams[second]} : {(SecondPrizeSatoshis / SatoshiMuliplier)} {Currency(Message.ContractAddress)}\r\n" +
             $"{nickNames[third]}({players[third]}) : {assignedTeams[third]} : {(ThirdPrizeSatoshis / SatoshiMuliplier)} {Currency(Message.ContractAddress)}";
+        LogLine("Result");
 
         TransferFunds(new Address(players[winner]), FirstPrizeSatoshis);
+        LogLine("TransferFunds(new Address(players[winner]), FirstPrizeSatoshis)");
         TransferFunds(new Address(players[second]), SecondPrizeSatoshis);
+        LogLine("TransferFunds(new Address(players[second]), SecondPrizeSatoshis)");
         TransferFunds(new Address(players[third]), ThirdPrizeSatoshis);
-    }
-
-    private static void CleanInput(ref string toClean)
-    {
-        toClean = toClean.Trim().Trim(',').ToLower();
-    }
-
-    private void CheckTeamsAreDifferentAndExist(string winningTeam, string secondPlace, string thirdPlace)
-    {
-        Assert(winningTeam != secondPlace);
-        Assert(secondPlace != thirdPlace);
-        Assert(thirdPlace != winningTeam);
-
-        Assert(TeamsCsv.Contains(winningTeam));
-        Assert(TeamsCsv.Contains(secondPlace));
-        Assert(TeamsCsv.Contains(thirdPlace));
+        LogLine("TransferFunds(new Address(players[third]), ThirdPrizeSatoshis);");
     }
 
     public void CancelAndRefund()
     {
-        Assert(Message.Sender == Owner);
+        EnsureOnlyOwnerCalled();
 
-        foreach (var player in Players)
+        for (uint i = 0; i < Players.Count; i++)
         {
-            TransferFunds(player, EntryFeeSatoshis);
+            TransferFunds(Players[i], EntryFeeSatoshis);
         }
 
         Result = "Cancelled by owner at block: " + Block.Number + ". Refunds issued.";
     }
 
+    private void EnsureOnlyOwnerCalled()
+    {
+        Assert(Message.Sender == Owner, $"Someone other than owner attempted to declare result: {Message.Sender}.");
+    }
+
+    private void CheckTeamsAreDifferentAndExist(string winningTeam, string secondPlace, string thirdPlace)
+    {
+        Assert(winningTeam != secondPlace, $"First place and second place were same team: {winningTeam}");
+        Assert(winningTeam != thirdPlace, $"First place and third place were same team: {winningTeam}");
+        Assert(secondPlace != thirdPlace, $"Third place and second place were same team: {secondPlace}");
+
+        Assert(TeamsCsv.Contains(winningTeam), $"Winning team not present in team list: {winningTeam}");
+        Assert(TeamsCsv.Contains(secondPlace), $"Second place team not present in team list: {secondPlace}");
+        Assert(TeamsCsv.Contains(thirdPlace), $"Third place team not present in team list: {thirdPlace}");
+    }
+
     private bool GameIsFull()
     {
-        return this.Players.Count == this.TeamsCsv.Split(",").Length;
+        TeamsAssigned = this.Players.Count == this.TeamsCsv.Split(",").Length;
+
+        return TeamsAssigned;
     }
 
     private string Currency(Address address)
     {
         return address.ToString().StartsWith("S") ? "STRAT" : "SC-TSTRAT";
+    }
+
+
+    public void StartGameNow()
+    {
+        EnsureOnlyOwnerCalled();
+        Assert(this.Players.Count > 0, "There are no players yet.");
+
+        int luckyPlayerIndex = 0;
+
+        while (Players.Count < TeamsCsv.Length)
+        {
+            AddPlayer(this.PlayersNickNames.Split(",")[luckyPlayerIndex], this.Players[(uint)luckyPlayerIndex]);
+            luckyPlayerIndex = (luckyPlayerIndex+1) % (TeamsCsv.Length-1);
+        } 
+
+        AssignTeams();
     }
 }
