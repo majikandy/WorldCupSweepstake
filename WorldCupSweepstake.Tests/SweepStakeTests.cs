@@ -106,7 +106,9 @@ namespace WorldCupSweepstake.Tests
 
             message.Sender = contractOwnerAddress;
             contract.StartGameNow();
-             
+
+            contract.Players.Count.Should().Be((uint)contract.TeamsCsv.Split(",").Length);
+
             contract.AssignedTeams.GetValue(0).Should().Be("england");
             contract.Players.GetValue(0).Should().Be(contractOwnerAddress);
             contract.AssignedTeams.GetValue(1).Should().Be("argentina");

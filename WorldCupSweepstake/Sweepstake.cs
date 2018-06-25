@@ -250,41 +250,28 @@ public class Sweepstake : SmartContract
     public void DeclareResult(string winningTeam, string secondPlace, string thirdPlace)
     {
         EnsureOnlyOwnerCalled();
-        LogLine("EnsureOnlyOwnerCalled");
 
         winningTeam = winningTeam.Trim().Trim(',').ToLower();
-        LogLine("winningTeam = winningTeam.Trim().Trim(',').ToLower()");
-
         secondPlace = secondPlace.Trim().Trim(',').ToLower();
-        LogLine("winningTeam = winningTeam.Trim().Trim(',').ToLower()");
         thirdPlace = thirdPlace.Trim().Trim(',').ToLower();
-        LogLine("winningTeam = winningTeam.Trim().Trim(',').ToLower()");
 
         var assignedTeams = AssignedTeamsCsv.Split(",");
-        LogLine("var assignedTeams = AssignedTeamsCsv.Split");
         var players = PlayersCsv.Split(",");
-        LogLine("var players = PlayersCsv.Split(");
 
         var nickNames = PlayersNickNames.Split(",");
-        LogLine("var nickNames = PlayersNickNames.Split(");
 
         CheckTeamsAreDifferentAndExist(winningTeam, secondPlace, thirdPlace);
-        LogLine("CheckTeamsAreDifferentAndExist(winningTeam, secondPlace, thirdPlace)");
 
         var winner = uint.MaxValue;
-        LogLine("var winner = uint.MaxValue;");
         var second = uint.MaxValue;
-        LogLine("var second = uint.MaxValue;");
         var third = uint.MaxValue;
-        LogLine(" var third = uint.MaxValue;");
 
-        LogLine("for (uint i = 0; i < assignedTeams.Length; i++)");
+        LogLine("Loop through the assigned teams");
         for (uint i = 0; i < assignedTeams.Length; i++)
         {
             var team = assignedTeams[i];
-            LogLine("var team = assignedTeams[i];");
 
-            LogLine("if (team == winningTeam)");
+            LogLine(i + ": if (team == winningTeam)");
             if (team == winningTeam)
             {
                 LogLine("winner = i");
@@ -310,14 +297,10 @@ public class Sweepstake : SmartContract
             $"{nickNames[winner]}({players[winner]}) : {assignedTeams[winner]} : {(FirstPrizeSatoshis / SatoshiMuliplier)} {Currency(Message.ContractAddress)}\r\n" +
             $"{nickNames[second]}({players[second]}) : {assignedTeams[second]} : {(SecondPrizeSatoshis / SatoshiMuliplier)} {Currency(Message.ContractAddress)}\r\n" +
             $"{nickNames[third]}({players[third]}) : {assignedTeams[third]} : {(ThirdPrizeSatoshis / SatoshiMuliplier)} {Currency(Message.ContractAddress)}";
-        LogLine("Result");
 
         TransferFunds(new Address(players[winner]), FirstPrizeSatoshis);
-        LogLine("TransferFunds(new Address(players[winner]), FirstPrizeSatoshis)");
         TransferFunds(new Address(players[second]), SecondPrizeSatoshis);
-        LogLine("TransferFunds(new Address(players[second]), SecondPrizeSatoshis)");
         TransferFunds(new Address(players[third]), ThirdPrizeSatoshis);
-        LogLine("TransferFunds(new Address(players[third]), ThirdPrizeSatoshis);");
     }
 
     public void CancelAndRefund()
@@ -368,7 +351,7 @@ public class Sweepstake : SmartContract
 
         int luckyPlayerIndex = 0;
 
-        while (Players.Count < TeamsCsv.Length)
+        while (Players.Count < TeamsCsv.Split(",").Length)
         {
             AddPlayer(this.PlayersNickNames.Split(",")[luckyPlayerIndex], this.Players[(uint)luckyPlayerIndex]);
             luckyPlayerIndex = (luckyPlayerIndex+1) % (TeamsCsv.Length-1);
