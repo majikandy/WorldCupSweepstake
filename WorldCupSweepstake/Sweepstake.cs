@@ -8,7 +8,7 @@ public class Sweepstake : SmartContract
 {
     private const ulong SatoshiMuliplier = 100000000;
 
-    public virtual Address Owner
+    private Address Owner
     {
         get
         {
@@ -20,12 +20,12 @@ public class Sweepstake : SmartContract
         }
     }
 
-    public ISmartContractList<Address> Players
+    private ISmartContractList<Address> Players
     {
         get { return PersistentState.GetAddressList("Players"); }
     }
 
-    public string PlayersCsv
+    private string PlayersCsv
     {
         get
         {
@@ -37,7 +37,7 @@ public class Sweepstake : SmartContract
         }
     }
 
-    public string PlayersNickNames
+    private string PlayersNickNames
     {
         get
         {
@@ -49,12 +49,12 @@ public class Sweepstake : SmartContract
         }
     }
 
-    public ISmartContractList<string> AssignedTeams
+    private ISmartContractList<string> AssignedTeams
     {
         get { return PersistentState.GetStringList("AssignedTeams"); }
     }
 
-    public string AssignedTeamsCsv
+    private string AssignedTeamsCsv
     {
         get
         {
@@ -66,7 +66,7 @@ public class Sweepstake : SmartContract
         }
     }
 
-    public string Result
+    private string Result
     {
         get
         {
@@ -78,7 +78,7 @@ public class Sweepstake : SmartContract
         }
     }
 
-    public ulong EntryFeeSatoshis
+    private ulong EntryFeeSatoshis
     {
         get
         {
@@ -90,7 +90,7 @@ public class Sweepstake : SmartContract
         }
     }
 
-    public ulong FirstPrizeSatoshis
+    private ulong FirstPrizeSatoshis
     {
         get
         {
@@ -102,7 +102,7 @@ public class Sweepstake : SmartContract
         }
     }
 
-    public ulong SecondPrizeSatoshis
+    private ulong SecondPrizeSatoshis
     {
         get
         {
@@ -114,7 +114,7 @@ public class Sweepstake : SmartContract
         }
     }
 
-    public ulong ThirdPrizeSatoshis
+    private ulong ThirdPrizeSatoshis
     {
         get
         {
@@ -126,7 +126,7 @@ public class Sweepstake : SmartContract
         }
     }
 
-    public string TeamsCsv
+    private string TeamsCsv
     {
         get
         {
@@ -138,7 +138,7 @@ public class Sweepstake : SmartContract
         }
     }
 
-    public string Log
+    private string Log
     {
         get
         {
@@ -150,7 +150,7 @@ public class Sweepstake : SmartContract
         }
     }
 
-    public bool TeamsAssigned {
+    private bool TeamsAssigned {
         get
         {
             return PersistentState.GetBool("TeamsAssigned");
