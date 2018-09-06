@@ -7,81 +7,31 @@ public class Sweepstake : SmartContract
 
     private Address Owner
     {
-        get
-        {
-            return PersistentState.GetAddress("Owner");
-        }
-        set
-        {
-            PersistentState.SetAddress("Owner", value);
-        }
+        get => PersistentState.GetAddress("Owner");
+        set => PersistentState.SetAddress("Owner", value);
     }
 
-    private ISmartContractList<Address> PlayersAddresses
-    {
-        get { return PersistentState.GetAddressList("PlayersAddresses"); }
-    }
-
-    private string PlayersNickNames
-    {
-        get
-        {
-            return PersistentState.GetString("PlayersNickNames");
-        }
-        set
-        {
-            PersistentState.SetString("PlayersNickNames", value);
-        }
-    }
-
+    private ISmartContractList<Address> PlayersAddresses => PersistentState.GetAddressList("PlayersAddresses");
+    private ISmartContractList<string> PlayersNickNames => PersistentState.GetStringList("PlayersNickNames");
     private ISmartContractList<string> AssignedTeams => PersistentState.GetStringList("AssignedTeams");
 
-    private string Result
-    {
-        get
-        {
-            return PersistentState.GetString("Result");
-        }
-        set
-        {
-            PersistentState.SetString("Result", value);
-        }
-    }
 
     private ulong EntryFeeSatoshis
     {
-        get
-        {
-            return PersistentState.GetUInt64("EntryFeeSatoshis");
-        }
-        set
-        {
-            PersistentState.SetUInt64("EntryFeeSatoshis", value);
-        }
+        get => PersistentState.GetUInt64("EntryFeeSatoshis");
+        set => PersistentState.SetUInt64("EntryFeeSatoshis", value);
     }
 
     private ulong FirstPrizeSatoshis
     {
-        get
-        {
-            return PersistentState.GetUInt64("FirstPrizeSatoshis");
-        }
-        set
-        {
-            PersistentState.SetUInt64("FirstPrizeSatoshis", value);
-        }
+        get => PersistentState.GetUInt64("FirstPrizeSatoshis");
+        set => PersistentState.SetUInt64("FirstPrizeSatoshis", value);
     }
 
     private ulong SecondPrizeSatoshis
     {
-        get
-        {
-            return PersistentState.GetUInt64("SecondPrizeSatoshis");
-        }
-        set
-        {
-            PersistentState.SetUInt64("SecondPrizeSatoshis", value);
-        }
+        get => PersistentState.GetUInt64("SecondPrizeSatoshis");
+        set => PersistentState.SetUInt64("SecondPrizeSatoshis", value);
     }
 
     private ulong ThirdPrizeSatoshis
@@ -90,22 +40,15 @@ public class Sweepstake : SmartContract
         set => PersistentState.SetUInt64("ThirdPrizeSatoshis", value);
     }
 
+    private ISmartContractList<ulong> PrizesSatoshis
+    {
+        get => PersistentState.GetUInt64List("PrizesSatoshis");
+    }
+
     private string TeamsCsv
     {
         get => PersistentState.GetString("TeamsCsv");
         set => PersistentState.SetString("TeamsCsv", value);
-    }
-
-    private string Log
-    {
-        get
-        {
-            return PersistentState.GetString("Log");
-        }
-        set
-        {
-            PersistentState.SetString("Log", value);
-        }
     }
 
     private bool TeamsAssigned {
@@ -116,6 +59,18 @@ public class Sweepstake : SmartContract
         set
         {
             PersistentState.SetBool("TeamsAssigned", value);
+        }
+    }
+
+    private string Result
+    {
+        get
+        {
+            return PersistentState.GetString("Result");
+        }
+        set
+        {
+            PersistentState.SetString("Result", value);
         }
     }
 
@@ -162,7 +117,7 @@ public class Sweepstake : SmartContract
     private void AddPlayer(string nickname, Address sender)
     {
         this.PlayersAddresses.Add(sender);
-        this.PlayersNickNames = (PlayersNickNames + "," + nickname).Trim(',').Trim();
+        this.PlayersNickNames.Add(nickname.Trim());
     }
 
     private void AssignTeams()
@@ -235,7 +190,7 @@ public class Sweepstake : SmartContract
         var assignedTeams = AssignedTeams;
         var playersAddresses = PlayersAddresses;
 
-        var nickNames = PlayersNickNames.Split(",");
+        var nickNames = PlayersNickNames;
 
         CheckTeamsAreDifferentAndExist(winningTeam, secondPlace, thirdPlace);
 
@@ -337,7 +292,7 @@ public class Sweepstake : SmartContract
 
         while (PlayersAddresses.Count < TeamsCsv.Split(",").Length)
         {
-            AddPlayer(this.PlayersNickNames.Split(",")[luckyPlayerIndex], this.PlayersAddresses[(uint)luckyPlayerIndex]);
+            AddPlayer(this.PlayersNickNames[(uint)luckyPlayerIndex], this.PlayersAddresses[(uint)luckyPlayerIndex]);
             luckyPlayerIndex = (luckyPlayerIndex+1) % (TeamsCsv.Length-1);
         } 
 

@@ -159,13 +159,12 @@ namespace WorldCupSweepstake.Tests
                 persistedAssignedTeams.GetValue(2));
 
             var result = persistentState.GetString("Result");
-            var persistedPlayersNickNames = persistentState.GetString("PlayersNickNames");
 
             var persistedFirstPrizeStrats = persistentState.GetUInt64("FirstPrizeSatoshis") / SatoshiMuliplier;
             var persistedSecondPrizeSatoshis = persistentState.GetUInt64("SecondPrizeSatoshis") / SatoshiMuliplier;
             var persistedThirdPrizeSatoshis = persistentState.GetUInt64("ThirdPrizeSatoshis") / SatoshiMuliplier;
 
-            var persistedNickNames = persistedPlayersNickNames.Split(",");
+            var persistedNickNames = persistentState.GetStringList("PlayersNickNames");
 
             result.Should().Be(
 $@"{persistedNickNames[3]}({persistedPlayers.GetValue(3)}) : {persistedAssignedTeams.GetValue(3)} : {persistedFirstPrizeStrats} SC-TSTRAT
