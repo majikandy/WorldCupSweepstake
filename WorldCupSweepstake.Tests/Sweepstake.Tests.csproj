@@ -16,7 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\WorldCupSweepstake\WorldCupSweepstake.csproj" />
+    <ProjectReference Include="..\WorldCupSweepstake\Sweepstake.csproj" />
   </ItemGroup>
 
 </Project>

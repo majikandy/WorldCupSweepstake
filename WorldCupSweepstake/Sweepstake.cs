@@ -1,9 +1,7 @@
-﻿using Stratis.SmartContracts;
+﻿using System;
+using Stratis.SmartContracts;
 
-/// <summary>
-/// DISCLAIMER: This contract is an experimental bit of fun for the world cup and NOT reference code. 
-/// It is not guaranteed to work and is my own work, not the work of the company.
-/// </summary>
+// ReSharper disable once CheckNamespace
 public class Sweepstake : SmartContract
 {
     private const ulong SatoshiMuliplier = 100000000;
@@ -49,10 +47,7 @@ public class Sweepstake : SmartContract
         }
     }
 
-    private ISmartContractList<string> AssignedTeams
-    {
-        get { return PersistentState.GetStringList("AssignedTeams"); }
-    }
+    private ISmartContractList<string> AssignedTeams => PersistentState.GetStringList("AssignedTeams");
 
     private string AssignedTeamsCsv
     {
@@ -116,26 +111,14 @@ public class Sweepstake : SmartContract
 
     private ulong ThirdPrizeSatoshis
     {
-        get
-        {
-            return PersistentState.GetUInt64("ThirdPrizeSatoshis");
-        }
-        set
-        {
-            PersistentState.SetUInt64("ThirdPrizeSatoshis", value);
-        }
+        get => PersistentState.GetUInt64("ThirdPrizeSatoshis");
+        set => PersistentState.SetUInt64("ThirdPrizeSatoshis", value);
     }
 
     private string TeamsCsv
     {
-        get
-        {
-            return PersistentState.GetString("TeamsCsv");
-        }
-        set
-        {
-            PersistentState.SetString("TeamsCsv", value);
-        }
+        get => PersistentState.GetString("TeamsCsv");
+        set => PersistentState.SetString("TeamsCsv", value);
     }
 
     private string Log
@@ -180,14 +163,24 @@ public class Sweepstake : SmartContract
     public void JoinGame(string nickname)
     {
         Assert(!nickname.Contains(","), "Cannot have comma in nickname.");
+        
+
         Assert(!GameIsFull(), "The game is already full. No more players can join.");
         Assert(Message.Value == this.EntryFeeSatoshis, "Amount must equal entryFee: " + this.EntryFeeSatoshis/SatoshiMuliplier +", but was: " + Message.Value + ".");
-
+        AssertNoWhitespace(nickname);
         AddPlayer(nickname, Message.Sender);
 
         if (GameIsFull())
         {
             AssignTeams();
+        }
+    }
+
+    private void AssertNoWhitespace(string nickname)
+    {
+        for(var i = 0; i < nickname.Length; i++)
+        {
+            Assert(!char.IsWhiteSpace(nickname[i]), "Cannot have whitespace in nickname.");
         }
     }
 
@@ -221,30 +214,42 @@ public class Sweepstake : SmartContract
     {
         var numberOfTeams = (uint)this.TeamsCsv.Split(",").Length;
 
-        int sum = 0;
+        int randomishNumber = 0;
 
-        // Use miner's address as source of pseudo randomness
+        randomishNumber = AddMinersAddress(randomishNumber);
+        randomishNumber = AddLastPlayersAddress(numberOfTeams, randomishNumber);
+        randomishNumber = AddBlockNumber(randomishNumber);
+
+        return randomishNumber;
+    }
+
+    private int AddBlockNumber(int randomishNumber)
+    {
+        randomishNumber = randomishNumber + (int) Block.Number;
+        return randomishNumber;
+    }
+
+    private int AddLastPlayersAddress(uint numberOfTeams, int randomishNumber)
+    {
+        var lastPlayer = Players[numberOfTeams - 1];
+
+        for(int i = 0; i < lastPlayer.Value.Length; i++)
+        {
+            randomishNumber += lastPlayer.Value[i];
+        }
+
+        return randomishNumber;
+    }
+
+    private int AddMinersAddress(int sum)
+    {
         var coinbaseAddress = Block.Coinbase.Value;
-        for (int i = 0; i < coinbaseAddress.Length; i++)
+        for(int i = 0; i < coinbaseAddress.Length; i++)
         {
             sum += coinbaseAddress[i];
         }
 
-        // Also use last player's address as source of pseudo randomness
-        var lastPlayer = Players[numberOfTeams - 1];
-
-        for (int i = 0; i < lastPlayer.Value.Length; i++)
-        {
-            sum += lastPlayer.Value[i];
-        }
-
-        sum = sum + (int) Block.Number;
         return sum;
-    }
-
-    private void LogLine(string toLog)
-    {
-        this.Log = this.Log + "\r\n" + toLog;
     }
 
     public void DeclareResult(string winningTeam, string secondPlace, string thirdPlace)
@@ -266,29 +271,22 @@ public class Sweepstake : SmartContract
         var second = uint.MaxValue;
         var third = uint.MaxValue;
 
-        LogLine("Loop through the assigned teams");
         for (uint i = 0; i < assignedTeams.Length; i++)
         {
             var team = assignedTeams[i];
 
-            LogLine(i + ": if (team == winningTeam)");
             if (team == winningTeam)
             {
-                LogLine("winner = i");
                 winner = i;
             }
 
-            LogLine("if (team == secondPlace)");
             if (team == secondPlace)
             {
-                LogLine("second = i;");
                 second = i;
             }
 
-            LogLine("if (team == thirdPlace)");
             if (team == thirdPlace)
             {
-                LogLine("third = i;");
                 third = i;
             }
         }
@@ -322,13 +320,28 @@ public class Sweepstake : SmartContract
 
     private void CheckTeamsAreDifferentAndExist(string winningTeam, string secondPlace, string thirdPlace)
     {
-        Assert(winningTeam != secondPlace, $"First place and second place were same team: {winningTeam}");
-        Assert(winningTeam != thirdPlace, $"First place and third place were same team: {winningTeam}");
-        Assert(secondPlace != thirdPlace, $"Third place and second place were same team: {secondPlace}");
+        Assert(winningTeam != secondPlace, $"First place and second place were same team: {winningTeam}.");
+        Assert(winningTeam != thirdPlace, $"First place and third place were same team: {winningTeam}.");
+        Assert(secondPlace != thirdPlace, $"Third place and second place were same team: {secondPlace}.");
 
-        Assert(TeamsCsv.Contains(winningTeam), $"Winning team not present in team list: {winningTeam}");
-        Assert(TeamsCsv.Contains(secondPlace), $"Second place team not present in team list: {secondPlace}");
-        Assert(TeamsCsv.Contains(thirdPlace), $"Third place team not present in team list: {thirdPlace}");
+        var teams = TeamsCsv.Split(",");
+
+        var winningTeamFound = false;
+        var secondTeamFound = false;
+        var thirdTeamFound = false;
+        for (int i = 0; i < teams.Length; i++)
+        {
+            if (teams[i] == winningTeam)
+                winningTeamFound = true;
+            if (teams[i] == secondPlace)
+                secondTeamFound = true;
+            if (teams[i] == thirdPlace)
+                thirdTeamFound = true;
+        }
+
+        Assert(winningTeamFound, $"Winning team not present in team list: {winningTeam}.");
+        Assert(secondTeamFound, $"Second place team not present in team list: {secondPlace}.");
+        Assert(thirdTeamFound, $"Third place team not present in team list: {thirdPlace}.");
     }
 
     private bool GameIsFull()
@@ -342,7 +355,6 @@ public class Sweepstake : SmartContract
     {
         return address.ToString().StartsWith("S") ? "STRAT" : "SC-TSTRAT";
     }
-
 
     public void StartGameNow()
     {

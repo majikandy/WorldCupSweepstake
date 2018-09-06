@@ -1,11 +1,12 @@
 using System;
 using FluentAssertions;
+using FluentAssertions.Execution;
 using NSubstitute;
 using Stratis.SmartContracts;
 using WorldCupSweepstake.Tests.TestTools;
 using Xunit;
 
-namespace WorldCupSweepstake.Tests
+namespace AuctionSample
 {
     public class AuctionTests
     {
@@ -54,9 +55,9 @@ namespace WorldCupSweepstake.Tests
             const ulong duration = 20;
             var contract = new Auction(smartContractState, duration);
 
-            contract.Owner.Should().Be(ContractOwnerAddress);
-            contract.HasEnded.Should().BeFalse();
-            contract.EndBlock.Should().Be(duration + smartContractState.Block.Number);
+            AssertionExtensions.Should((object) contract.Owner).Be(ContractOwnerAddress);
+            AssertionExtensions.Should((bool) contract.HasEnded).BeFalse();
+            AssertionExtensions.Should((ulong) contract.EndBlock).Be(duration + smartContractState.Block.Number);
         }
 
         [Fact]
@@ -64,8 +65,8 @@ namespace WorldCupSweepstake.Tests
         {
             var contract = new Auction(smartContractState, 20);
 
-            contract.HighestBidder.Should().Be(default(Address));
-            contract.HighestBid.Should().Be(0uL);
+            AssertionExtensions.Should((object) contract.HighestBidder).Be(default(Address));
+            AssertionExtensions.Should((ulong) contract.HighestBid).Be(0uL);
 
             var message = ((TestMessage) smartContractState.Message);
 
@@ -73,8 +74,8 @@ namespace WorldCupSweepstake.Tests
             message.Sender = BidderOne;
             contract.Bid();
 
-            contract.HighestBidder.Should().Be(BidderOne);
-            contract.HighestBid.Should().Be(100ul);
+            AssertionExtensions.Should((object) contract.HighestBidder).Be(BidderOne);
+            AssertionExtensions.Should((ulong) contract.HighestBid).Be(100ul);
         }
 
         [Fact]
@@ -92,7 +93,7 @@ namespace WorldCupSweepstake.Tests
             message.Sender = BidderTwo;
             contract.Bid();
 
-            Assert.Equal(BidderTwo, contract.HighestBidder);
+            Assert.Equal<Address>(BidderTwo, contract.HighestBidder);
             Assert.Equal(200uL, smartContractState.PersistentState.GetUInt64("HighestBid"));
         }
 
@@ -101,8 +102,8 @@ namespace WorldCupSweepstake.Tests
         {
             var contract = new Auction(smartContractState, 20);
 
-            var exception = Assert.Throws<Exception>(() => contract.AuctionEnd());
-            Assert.Equal("Condition inside 'Assert' call was false.", exception.Message);
+            var exception = Assert.Throws<SmartContractAssertException>(() => contract.AuctionEnd());
+            Assert.Equal("Assert failed.", exception.Message);
         }
 
         [Fact]
@@ -115,8 +116,8 @@ namespace WorldCupSweepstake.Tests
             message.Value = 200;
             message.Sender = BidderTwo;
 
-            var exception = Assert.Throws<Exception>(() => contract.Bid());
-            Assert.Equal("Condition inside 'Assert' call was false.", exception.Message);
+            var exception = Assert.Throws<SmartContractAssertException>(() => contract.Bid());
+            Assert.Equal("Assert failed.", exception.Message);
         }
 
         [Fact]
@@ -134,7 +135,7 @@ namespace WorldCupSweepstake.Tests
                 .SetValue(smartContractState.Block, contract.EndBlock);
 
             contract.AuctionEnd();
-            Assert.True(contract.HasEnded);
+            Assert.True((bool) contract.HasEnded);
             this.transactionExecutor.Received().TransferFunds(smartContractState, ContractOwnerAddress, 200ul, null);
         }
 
@@ -165,8 +166,8 @@ namespace WorldCupSweepstake.Tests
 
             Action withdraw = () => contract.Withdraw();
 
-            withdraw.Should().Throw<Exception>()
-                .WithMessage("Condition inside 'Assert' call was false.");
+            withdraw.Should().Throw<SmartContractAssertException>()
+                .WithMessage("Assert failed.");
         }
 
         [Fact]
@@ -184,8 +185,8 @@ namespace WorldCupSweepstake.Tests
             message.Value = 300;
             contract.Bid();
 
-            contract.HighestBidder.Should().Be(BidderOne);
-            contract.HighestBid.Should().Be(300ul);
+            AssertionExtensions.Should((object) contract.HighestBidder).Be(BidderOne);
+            AssertionExtensions.Should((ulong) contract.HighestBid).Be(300ul);
         }
 
         [Fact]
@@ -201,8 +202,8 @@ namespace WorldCupSweepstake.Tests
             message.Value = 200;
             Action bid = () => contract.Bid();
 
-            bid.Should().Throw<Exception>()
-                .WithMessage("Condition inside 'Assert' call was false.");
+            bid.Should().Throw<SmartContractAssertException>()
+                .WithMessage("Assert failed.");
         }
 
         [Fact]
@@ -218,8 +219,8 @@ namespace WorldCupSweepstake.Tests
             message.Value = 100;
             Action bid = () => contract.Bid();
 
-            bid.Should().Throw<Exception>()
-                .WithMessage("Condition inside 'Assert' call was false.");
+            bid.Should().Throw<SmartContractAssertException>()
+                .WithMessage("Assert failed.");
         }
     }
 }

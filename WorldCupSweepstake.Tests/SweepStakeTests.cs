@@ -7,10 +7,6 @@ using Xunit;
 
 namespace WorldCupSweepstake.Tests
 {
-    /// <summary>
-    /// DISCLAIMER: This contract is an experimental bit of fun for the world cup and NOT reference code. 
-    /// It is not guranteed to work and is my own work, not the work of the company.
-    /// </summary>
     public class SweepStakeTests
     {
         private readonly Address contractOwnerAddress = new Address("contract_owner_address");
@@ -19,56 +15,31 @@ namespace WorldCupSweepstake.Tests
         private readonly Address punter2Address = new Address("Punter2 address");
         private readonly Address punter3Address = new Address("Punter3 address");
         private uint entryFeeStrats = 5;
-        private const ulong SatoshiMuliplier = 100000000;
+        private const ulong SatoshiMuliplier = 100000000; //note via swagger when calling methods it is strats. eg amount:"1"  means 1 strat (1*10^8 satoshis)
 
-        private readonly TestSmartContractState smartContractState;
-        private readonly IInternalTransactionExecutor transactionExecutor;
-        private readonly IPersistentState persistentState;
+        private TestSmartContractState smartContractState;
+        private IInternalTransactionExecutor transactionExecutor;
+        private IPersistentState persistentState;
 
         public SweepStakeTests()
         {
-            var block = new TestBlock
-            {
-                Coinbase = contractOwnerAddress,
-                Number = 2
-            };
-
-            var message = new TestMessage
-            {
-                ContractAddress = contractAddress,
-                GasLimit = (Gas) (ulong) 10000,
-                Sender = punter1Address,
-                Value = 0
-            };
-
-            this.transactionExecutor = Substitute.For<IInternalTransactionExecutor>();
-            persistentState = new InMemoryState();
-
-            this.smartContractState = new TestSmartContractState(
-                block,
-                message,
-                persistentState,
-                null,
-                transactionExecutor,
-                () => (ulong) 0,
-                new TestInternalHashHelper()
-            );
+            CreateSmartContractState();
         }
 
         private Sweepstake SetupValidSweepstake()
         {
-            var message = ((TestMessage) smartContractState.Message);
+            var message = ((TestMessage)smartContractState.Message);
             message.Sender = contractOwnerAddress;
             message.Value =
                 entryFeeStrats *
-                SatoshiMuliplier; //note via swagger when calling methods it is strats. eg amount:"1"  means 1 strat (1*10^8 satoshis)
+                SatoshiMuliplier; 
 
             var teams = "Germany,Brazil,England,Argentina";
 
             var totalPrizeFund = entryFeeStrats * 4;
-            uint firstPrize = (uint) (totalPrizeFund * 0.7);
-            uint secondPrize = (uint) (totalPrizeFund * 0.2);
-            uint thirdPrize = (uint) (totalPrizeFund * 0.1);
+            uint firstPrize = (uint)(totalPrizeFund * 0.7);
+            uint secondPrize = (uint)(totalPrizeFund * 0.2);
+            uint thirdPrize = (uint)(totalPrizeFund * 0.1);
 
             var contract = new Sweepstake(smartContractState, teams, entryFeeStrats, firstPrize, secondPrize,
                 thirdPrize);
@@ -91,7 +62,7 @@ namespace WorldCupSweepstake.Tests
         [Fact]
         public void Assign_teams_psuedo_randomly_after_final_player_joins_the_game()
         {
-            var message = ((TestMessage) smartContractState.Message);
+            var message = ((TestMessage)smartContractState.Message);
 
             var contract = SetupValidSweepstake();
             all_players_join_and_get_assigned_teams(message, contract);
@@ -101,7 +72,7 @@ namespace WorldCupSweepstake.Tests
         public void
             StartGameNow_shortcuts_the_join_game_process_and_assigns_all_remaining_teams_to_current_players_and_starts_the_game()
         {
-            var message = ((TestMessage) smartContractState.Message);
+            var message = ((TestMessage)smartContractState.Message);
             message.Sender = contractOwnerAddress;
 
             var contract = SetupValidSweepstake();
@@ -131,7 +102,7 @@ namespace WorldCupSweepstake.Tests
         [Fact]
         public void Only_contract_owner_can_start_game_now()
         {
-            var message = ((TestMessage) smartContractState.Message);
+            var message = ((TestMessage)smartContractState.Message);
 
             var contract = SetupValidSweepstake();
             message.Sender = punter1Address;
@@ -172,19 +143,24 @@ namespace WorldCupSweepstake.Tests
         [Fact]
         public void AnnounceResult_and_payout()
         {
-            var message = ((TestMessage) smartContractState.Message);
+            var message = ((TestMessage)smartContractState.Message);
 
             var contract = SetupValidSweepstake();
             all_players_join_and_get_assigned_teams(message, contract);
+            //england argentina germany brazil
+            //owner    p1        p2      p3
 
             var persistedAssignedTeams = persistentState.GetStringList("AssignedTeams");
             var persistedPlayers = persistentState.GetAddressList("Players");
 
             message.Sender = contractOwnerAddress;
-            contract.DeclareResult(persistedAssignedTeams.GetValue(3), persistedAssignedTeams.GetValue(0),
-                persistedAssignedTeams.GetValue(2));
 
-            var s = persistentState.GetString("Result");
+            contract.DeclareResult(
+                persistedAssignedTeams.GetValue(3), // brazily 
+                persistedAssignedTeams.GetValue(0), // england
+                persistedAssignedTeams.GetValue(2));// germany;
+
+            var result = persistentState.GetString("Result");
             var persistedPlayersNickNames = persistentState.GetString("PlayersNickNames");
 
             var persistedFirstPrizeStrats = persistentState.GetUInt64("FirstPrizeSatoshis") / SatoshiMuliplier;
@@ -193,15 +169,17 @@ namespace WorldCupSweepstake.Tests
 
             var persistedNickNames = persistedPlayersNickNames.Split(",");
 
-            s.Should().Be(
+            result.Should().Be(
 $@"{persistedNickNames[3]}({persistedPlayers.GetValue(3)}) : {persistedAssignedTeams.GetValue(3)} : {persistedFirstPrizeStrats} SC-TSTRAT
 {persistedNickNames[0]}({persistedPlayers.GetValue(0)}) : {persistedAssignedTeams.GetValue(0)} : {persistedSecondPrizeSatoshis} SC-TSTRAT
 {persistedNickNames[2]}({persistedPlayers.GetValue(2)}) : {persistedAssignedTeams.GetValue(2)} : {persistedThirdPrizeSatoshis} SC-TSTRAT");
 
             this.transactionExecutor.Received().TransferFunds(smartContractState, persistedPlayers.GetValue(3),
                 14ul * SatoshiMuliplier, null);
+
             this.transactionExecutor.Received().TransferFunds(smartContractState, persistedPlayers.GetValue(0),
                 4ul * SatoshiMuliplier, null);
+
             this.transactionExecutor.Received().TransferFunds(smartContractState, persistedPlayers.GetValue(2),
                 2ul * SatoshiMuliplier, null);
         }
@@ -210,7 +188,7 @@ $@"{persistedNickNames[3]}({persistedPlayers.GetValue(3)}) : {persistedAssignedT
         public void Error_if_entry_fee_too_high()
         {
             var contract = SetupValidSweepstake();
-            var message = ((TestMessage) smartContractState.Message);
+            var message = ((TestMessage)smartContractState.Message);
             message.Value = entryFeeStrats + 1;
 
             Action joinGame = () => contract.JoinGame("alice");
@@ -223,7 +201,7 @@ $@"{persistedNickNames[3]}({persistedPlayers.GetValue(3)}) : {persistedAssignedT
         public void Error_if_entry_fee_too_low()
         {
             var contract = SetupValidSweepstake();
-            var message = ((TestMessage) smartContractState.Message);
+            var message = ((TestMessage)smartContractState.Message);
             message.Value = entryFeeStrats - 1;
 
             Action joinGame = () => contract.JoinGame("alice");
@@ -255,8 +233,19 @@ $@"{persistedNickNames[3]}({persistedPlayers.GetValue(3)}) : {persistedAssignedT
 
             Action joinGame = () => contract.JoinGame(",");
 
-            joinGame.Should().Throw<Exception>()
+            joinGame.Should().Throw<SmartContractAssertException>()
                 .WithMessage("Cannot have comma in nickname.");
+        }
+
+        [Fact]
+        public void Error_when_name_contains_whitespace()
+        {
+            var contract = SetupValidSweepstake();
+
+            Action joinGame = () => contract.JoinGame(" ");
+
+            joinGame.Should().Throw<SmartContractAssertException>()
+                .WithMessage("Cannot have whitespace in nickname.");
         }
 
         [Fact]
@@ -266,7 +255,7 @@ $@"{persistedNickNames[3]}({persistedPlayers.GetValue(3)}) : {persistedAssignedT
 
             Action declareResult = () => contract.DeclareResult("Brazil", "England", "Germany");
 
-            var message = ((TestMessage) smartContractState.Message);
+            var message = ((TestMessage)smartContractState.Message);
             message.Sender = new Address("not_owner");
 
             declareResult.Should().Throw<Exception>().And.Message.Should()
@@ -276,7 +265,7 @@ $@"{persistedNickNames[3]}({persistedPlayers.GetValue(3)}) : {persistedAssignedT
         [Fact]
         public void Error_when_prizes_dont_add_up_to_number_of_players()
         {
-            var message = ((TestMessage) smartContractState.Message);
+            var message = ((TestMessage)smartContractState.Message);
             message.Sender = contractOwnerAddress;
             message.Value = entryFeeStrats;
 
@@ -287,36 +276,43 @@ $@"{persistedNickNames[3]}({persistedPlayers.GetValue(3)}) : {persistedAssignedT
             Action construct = () => new Sweepstake(smartContractState, "Germany,Brazil,England,Argentina",
                 entryFeeStrats, firstPrize, secondPrize, thirdPrize);
 
-            construct.Should().Throw<Exception>();
+            construct.Should().Throw<SmartContractAssertException>()
+                .And.Message.Should().Be("Sum of the prizes must equal the teams * entryFee.");
         }
 
         [Fact]
         public void When_declaring_result_check_all_teams_are_different_and_exist()
         {
-            var message = ((TestMessage) smartContractState.Message);
+            var message = ((TestMessage)smartContractState.Message);
 
             var contract = SetupValidSweepstake();
             all_players_join_and_get_assigned_teams(message, contract);
 
             message.Sender = contractOwnerAddress;
-            Action declareResult = () => contract.DeclareResult("Brazil", "Brazil  ", "Germany");
-            declareResult.Should().Throw<Exception>();
-            declareResult = () => contract.DeclareResult("England", "Brazil", "Brazil");
-            declareResult.Should().Throw<Exception>();
-            declareResult = () => contract.DeclareResult("England", "Brazil", "England");
-            declareResult.Should().Throw<Exception>();
-            declareResult = () => contract.DeclareResult("E", "Brazil", "Germany");
-            declareResult.Should().Throw<Exception>();
-            declareResult = () => contract.DeclareResult("England", "B", "Germany");
-            declareResult.Should().Throw<Exception>();
-            declareResult = () => contract.DeclareResult("England", "Brazil", "G");
-            declareResult.Should().Throw<Exception>();
+
+            VerifyAssertFail(() => contract.DeclareResult("Brazil", "Brazil  ", "Germany"),
+                "First place and second place were same team: brazil.");
+
+            VerifyAssertFail(() => contract.DeclareResult("England", "Brazil", "Brazil"),
+               "Third place and second place were same team: brazil.");
+
+            VerifyAssertFail(() => contract.DeclareResult("England", "Brazil", "England"),
+                "First place and third place were same team: england.");
+
+            VerifyAssertFail(() => contract.DeclareResult("E", "Brazil", "Germany"), 
+                "Winning team not present in team list: e.");
+
+            VerifyAssertFail(() => contract.DeclareResult("England", "B", "Germany"), 
+                "Second place team not present in team list: b.");
+
+            VerifyAssertFail(() => contract.DeclareResult("England", "Brazil", "G"), 
+                "Third place team not present in team list: g.");
         }
 
         [Fact]
         public void Cancel_and_refund()
         {
-            var message = ((TestMessage) smartContractState.Message);
+            var message = ((TestMessage)smartContractState.Message);
 
             var contract = SetupValidSweepstake();
             message.Sender = contractOwnerAddress;
@@ -334,10 +330,13 @@ $@"{persistedNickNames[3]}({persistedPlayers.GetValue(3)}) : {persistedAssignedT
 
             this.transactionExecutor.Received()
                 .TransferFunds(smartContractState, contractOwnerAddress, 5ul * SatoshiMuliplier, null);
+
             this.transactionExecutor.Received()
                 .TransferFunds(smartContractState, punter1Address, 5ul * SatoshiMuliplier, null);
+
             this.transactionExecutor.Received()
                 .TransferFunds(smartContractState, punter2Address, 5ul * SatoshiMuliplier, null);
+
             this.transactionExecutor.Received()
                 .TransferFunds(smartContractState, punter3Address, 5ul * SatoshiMuliplier, null);
 
@@ -345,11 +344,49 @@ $@"{persistedNickNames[3]}({persistedPlayers.GetValue(3)}) : {persistedAssignedT
                 .Be("Cancelled by owner at block: " + smartContractState.Block.Number + ". Refunds issued.");
         }
 
+
         //[Fact] - Idea for an escrow based team tran
+
         public void TransferTeam_allows_player_to_receive_funds_for_a_team_via_escrow()
         {
-        //    contract.TransferTeam(teamName, Address buyer, ulong price);
-        //    contract.PayForTransfer(teamName, Address seller);
+            //    contract.TransferTeam(teamName, Address buyer, ulong price);
+            //    contract.PayForTransfer(teamName, Address seller);
+        }
+
+        private void CreateSmartContractState()
+        {
+            var block = new TestBlock
+            {
+                Coinbase = contractOwnerAddress,
+                Number = 2
+            };
+
+            var message = new TestMessage
+            {
+                ContractAddress = contractAddress,
+                GasLimit = (Gas) (ulong) 10000,
+                Sender = punter1Address,
+                Value = 0
+            };
+
+            this.transactionExecutor = Substitute.For<IInternalTransactionExecutor>();
+            persistentState = new InMemoryState();
+
+            this.smartContractState = new TestSmartContractState(
+                block,
+                message,
+                persistentState,
+                null,
+                transactionExecutor,
+                () => (ulong) 0,
+                new TestInternalHashHelper()
+            );
+        }
+
+        private static void VerifyAssertFail(Action action, string assertFailMessage)
+        {
+            action.Should().Throw<SmartContractAssertException>()
+                .And.Message.Should().Be(assertFailMessage);
         }
     }
 }
