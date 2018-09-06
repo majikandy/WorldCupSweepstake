@@ -54,9 +54,9 @@ namespace WorldCupSweepstake.Tests
 
             persistentState.GetAddress("Owner").Should().Be(contractOwnerAddress);
             persistentState.GetString("TeamsCsv").Should().Be("germany,brazil,england,argentina");
-            persistentState.GetUInt64("FirstPrizeSatoshis").Should().Be(14ul * SatoshiMuliplier);
-            persistentState.GetUInt64("SecondPrizeSatoshis").Should().Be(4ul * SatoshiMuliplier);
-            persistentState.GetUInt64("ThirdPrizeSatoshis").Should().Be(2ul * SatoshiMuliplier);
+            persistentState.GetUInt64List("PrizesSatoshis")[0].Should().Be(14ul * SatoshiMuliplier);
+            persistentState.GetUInt64List("PrizesSatoshis")[1].Should().Be(4ul * SatoshiMuliplier);
+            persistentState.GetUInt64List("PrizesSatoshis")[2].Should().Be(2ul * SatoshiMuliplier);
         }
 
         [Fact]
@@ -160,9 +160,11 @@ namespace WorldCupSweepstake.Tests
 
             var result = persistentState.GetString("Result");
 
-            var persistedFirstPrizeStrats = persistentState.GetUInt64("FirstPrizeSatoshis") / SatoshiMuliplier;
-            var persistedSecondPrizeSatoshis = persistentState.GetUInt64("SecondPrizeSatoshis") / SatoshiMuliplier;
-            var persistedThirdPrizeSatoshis = persistentState.GetUInt64("ThirdPrizeSatoshis") / SatoshiMuliplier;
+            var prizes = persistentState.GetUInt64List("PrizesSatoshis");
+
+            var persistedFirstPrizeStrats = prizes[0] / SatoshiMuliplier;
+            var persistedSecondPrizeSatoshis = prizes[1] / SatoshiMuliplier;
+            var persistedThirdPrizeSatoshis = prizes[2] / SatoshiMuliplier;
 
             var persistedNickNames = persistentState.GetStringList("PlayersNickNames");
 

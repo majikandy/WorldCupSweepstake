@@ -15,8 +15,7 @@ namespace WorldCupSweepstake.Tests.TestTools
         private Dictionary<string, TestSmartContractMapping<Address>> addressMappings = new Dictionary<string, TestSmartContractMapping<Address>>();
         private Dictionary<string, TestSmartContractList<Address>> addressLists = new Dictionary<string, TestSmartContractList<Address>>();
         private Dictionary<string, TestSmartContractList<string>> stringLists = new Dictionary<string, TestSmartContractList<string>>();
-
-
+        private Dictionary<string, TestSmartContractList<ulong>> uint64Lists = new Dictionary<string, TestSmartContractList<ulong>>();
 
         public byte GetByte(string key)
         {
@@ -252,7 +251,11 @@ namespace WorldCupSweepstake.Tests.TestTools
 
         public ISmartContractList<ulong> GetUInt64List(string name)
         {
-            throw new NotImplementedException();
+            if (!this.uint64Lists.ContainsKey(name))
+            {
+                this.uint64Lists.Add(name, new TestSmartContractList<ulong>());
+            }
+            return this.uint64Lists[name];
         }
 
         public ISmartContractList<string> GetStringList(string name)

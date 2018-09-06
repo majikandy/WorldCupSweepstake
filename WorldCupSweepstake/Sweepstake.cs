@@ -14,35 +14,12 @@ public class Sweepstake : SmartContract
     private ISmartContractList<Address> PlayersAddresses => PersistentState.GetAddressList("PlayersAddresses");
     private ISmartContractList<string> PlayersNickNames => PersistentState.GetStringList("PlayersNickNames");
     private ISmartContractList<string> AssignedTeams => PersistentState.GetStringList("AssignedTeams");
-
+    private ISmartContractList<ulong> PrizesSatoshis => PersistentState.GetUInt64List("PrizesSatoshis");
 
     private ulong EntryFeeSatoshis
     {
         get => PersistentState.GetUInt64("EntryFeeSatoshis");
         set => PersistentState.SetUInt64("EntryFeeSatoshis", value);
-    }
-
-    private ulong FirstPrizeSatoshis
-    {
-        get => PersistentState.GetUInt64("FirstPrizeSatoshis");
-        set => PersistentState.SetUInt64("FirstPrizeSatoshis", value);
-    }
-
-    private ulong SecondPrizeSatoshis
-    {
-        get => PersistentState.GetUInt64("SecondPrizeSatoshis");
-        set => PersistentState.SetUInt64("SecondPrizeSatoshis", value);
-    }
-
-    private ulong ThirdPrizeSatoshis
-    {
-        get => PersistentState.GetUInt64("ThirdPrizeSatoshis");
-        set => PersistentState.SetUInt64("ThirdPrizeSatoshis", value);
-    }
-
-    private ISmartContractList<ulong> PrizesSatoshis
-    {
-        get => PersistentState.GetUInt64List("PrizesSatoshis");
     }
 
     private string TeamsCsv
@@ -85,9 +62,9 @@ public class Sweepstake : SmartContract
         
         TeamsCsv = teams;
         EntryFeeSatoshis = entryFeeStrats * SatoshiMuliplier;
-        FirstPrizeSatoshis = firstPrizeStrats * SatoshiMuliplier;
-        SecondPrizeSatoshis = secondPrizeStrats * SatoshiMuliplier;
-        ThirdPrizeSatoshis = thirdPrizeStrats * SatoshiMuliplier;
+        PrizesSatoshis.Add(firstPrizeStrats * SatoshiMuliplier);
+        PrizesSatoshis.Add(secondPrizeStrats * SatoshiMuliplier);
+        PrizesSatoshis.Add(thirdPrizeStrats * SatoshiMuliplier);
     }
 
     public void JoinGame(string nickname)
@@ -217,6 +194,10 @@ public class Sweepstake : SmartContract
                 third = i;
             }
         }
+
+        ulong FirstPrizeSatoshis = PrizesSatoshis[0];
+        ulong SecondPrizeSatoshis = PrizesSatoshis[1];
+        ulong ThirdPrizeSatoshis = PrizesSatoshis[2];
 
         Result = 
             $"{nickNames[winner]}({playersAddresses[winner]}) : {assignedTeams[winner]} : {(FirstPrizeSatoshis / SatoshiMuliplier)} {Currency(Message.ContractAddress)}\r\n" +
