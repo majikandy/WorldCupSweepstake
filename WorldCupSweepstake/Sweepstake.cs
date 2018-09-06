@@ -49,18 +49,6 @@ public class Sweepstake : SmartContract
 
     private ISmartContractList<string> AssignedTeams => PersistentState.GetStringList("AssignedTeams");
 
-    private string AssignedTeamsCsv
-    {
-        get
-        {
-            return PersistentState.GetString("AssignedTeamsCsv");
-        }
-        set
-        {
-            PersistentState.SetString("AssignedTeamsCsv", value);
-        }
-    }
-
     private string Result
     {
         get
@@ -201,8 +189,6 @@ public class Sweepstake : SmartContract
 
         var reorderedTeams = stringAfterComma + "," + stringBeforeComma;
 
-        this.AssignedTeamsCsv = reorderedTeams;
-
         foreach (var team in reorderedTeams.Split(","))
         {
             AssignedTeams.Add(team.Trim());
@@ -260,7 +246,7 @@ public class Sweepstake : SmartContract
         secondPlace = secondPlace.Trim().Trim(',').ToLower();
         thirdPlace = thirdPlace.Trim().Trim(',').ToLower();
 
-        var assignedTeams = AssignedTeamsCsv.Split(",");
+        var assignedTeams = AssignedTeams;
         var players = PlayersCsv.Split(",");
 
         var nickNames = PlayersNickNames.Split(",");
@@ -271,7 +257,7 @@ public class Sweepstake : SmartContract
         var second = uint.MaxValue;
         var third = uint.MaxValue;
 
-        for (uint i = 0; i < assignedTeams.Length; i++)
+        for (uint i = 0; i < assignedTeams.Count; i++)
         {
             var team = assignedTeams[i];
 
@@ -284,7 +270,7 @@ public class Sweepstake : SmartContract
             {
                 second = i;
             }
-
+             
             if (team == thirdPlace)
             {
                 third = i;
