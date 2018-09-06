@@ -28,17 +28,6 @@ public class Sweepstake : SmartContract
         set => PersistentState.SetString("TeamsCsv", value);
     }
 
-    private bool TeamsAssigned {
-        get
-        {
-            return PersistentState.GetBool("TeamsAssigned");
-        }
-        set
-        {
-            PersistentState.SetBool("TeamsAssigned", value);
-        }
-    }
-
     private string Result
     {
         get
@@ -254,9 +243,7 @@ public class Sweepstake : SmartContract
 
     private bool GameIsFull()
     {
-        TeamsAssigned = this.PlayersAddresses.Count == this.TeamsCsv.Split(",").Length;
-
-        return TeamsAssigned;
+        return this.PlayersAddresses.Count == this.TeamsCsv.Split(",").Length;
     }
 
     private string Currency(Address address)
