@@ -84,8 +84,8 @@ namespace WorldCupSweepstake.Tests
             message.Sender = contractOwnerAddress;
             contract.StartGameNow();
 
-            var persistedPlayers = persistentState.GetAddressList("Players");
-            persistedPlayers.Count.Should().Be((uint)persistentState.GetString("TeamsCsv").Split(",").Length);
+            var persistedPlayers = persistentState.GetAddressList("PlayersAddresses");
+            persistedPlayers.Count.Should().Be(4);
 
             var persistedAssignedTeams = persistentState.GetStringList("AssignedTeams");
 
@@ -149,7 +149,7 @@ namespace WorldCupSweepstake.Tests
             all_players_join_and_get_assigned_teams(message, contract);
 
             var persistedAssignedTeams = persistentState.GetStringList("AssignedTeams");
-            var persistedPlayers = persistentState.GetAddressList("Players");
+            var persistedPlayers = persistentState.GetAddressList("PlayersAddresses");
 
             message.Sender = contractOwnerAddress;
 
@@ -340,6 +340,15 @@ $@"{persistedNickNames[3]}({persistedPlayers.GetValue(3)}) : {persistedAssignedT
 
             persistentState.GetString("Result").Should()
                 .Be("Cancelled by owner at block: " + smartContractState.Block.Number + ". Refunds issued.");
+        }
+
+
+        //[Fact] - Idea for an escrow based team tran
+
+        public void TransferTeam_allows_player_to_receive_funds_for_a_team_via_escrow()
+        {
+            //    contract.TransferTeam(teamName, Address buyer, ulong price);
+            //    contract.PayForTransfer(teamName, Address seller);
         }
 
         private void CreateSmartContractState()
